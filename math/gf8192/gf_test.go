@@ -24,9 +24,9 @@ func assertEq(t *testing.T, a, b Gf) {
 func TestGeneric(t *testing.T) {
 	t.Run("Add", func(t *testing.T) { testAdd(t, Add) })
 	t.Run("Mul", func(t *testing.T) { testMul(t, Mul) })
-	t.Run("Sqr2", func(t *testing.T) { testSqr2(t, Sqr2) })
-	t.Run("SqrMul", func(t *testing.T) { testSqrMul(t, SqrMul) })
-	t.Run("Sqr2Mul", func(t *testing.T) { testSqr2Mul(t, Sqr2Mul) })
+	t.Run("sqr2", func(t *testing.T) { testSqr2(t, sqr2) })
+	t.Run("sqrMul", func(t *testing.T) { testSqrMul(t, sqrMul) })
+	t.Run("sqr2Mul", func(t *testing.T) { testSqr2Mul(t, sqr2Mul) })
 	t.Run("Inv", func(t *testing.T) { testInv(t, Inv) })
 	t.Run("Div", func(t *testing.T) { testDiv(t, Div) })
 }

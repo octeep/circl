@@ -40,8 +40,8 @@ func Mul(a, b Gf) Gf {
 	return uint16(tmp & gfMask)
 }
 
-// Sqr calculates the square of Gf element a
-func Sqr(a Gf) Gf {
+// sqr calculates the square of Gf element a
+func sqr(a Gf) Gf {
 	a32 := uint32(a)
 	a32 = (a32 | (a32 << 8)) & 0x00FF00FF
 	a32 = (a32 | (a32 << 4)) & 0x0F0F0F0F
@@ -61,20 +61,20 @@ func Sqr(a Gf) Gf {
 
 // Inv calculates the multiplicative inverse of Gf element a
 func Inv(a Gf) Gf {
-	out := Sqr(a)
+	out := sqr(a)
 	tmp3 := Mul(out, a) // a^3
 
-	out = Sqr(Sqr(tmp3))
+	out = sqr(sqr(tmp3))
 	tmp15 := Mul(out, tmp3) // a^15 = a^(3*2*2 + 3)
 
-	out = Sqr(Sqr(Sqr(Sqr(tmp15))))
+	out = sqr(sqr(sqr(sqr(tmp15))))
 	out = Mul(out, tmp15) // a^255 = a^(15*2*2*2*2 + 15)
 
-	out = Sqr(Sqr(out))
+	out = sqr(sqr(out))
 	out = Mul(out, tmp3) // a^1023 = a^(255*2*2 + 3)
 
-	out = Mul(Sqr(out), a) // a^2047 = a^(1023*2 + 1)
-	return Sqr(out)        // a^4094 = a^(2047 * 2)
+	out = Mul(sqr(out), a) // a^2047 = a^(1023*2 + 1)
+	return sqr(out)        // a^4094 = a^(2047 * 2)
 }
 
 // Div calculates a / b

@@ -38,8 +38,8 @@ func Mul(a, b Gf) Gf {
 	return uint16(tmp & gfMask)
 }
 
-// Sqr2 calculates a^4
-func Sqr2(a Gf) Gf {
+// sqr2 calculates a^4
+func sqr2(a Gf) Gf {
 	a64 := uint64(a)
 	a64 = (a64 | (a64 << 24)) & 0x000000FF000000FF
 	a64 = (a64 | (a64 << 12)) & 0x000F000F000F000F
@@ -58,8 +58,8 @@ func Sqr2(a Gf) Gf {
 	return uint16(a64 & gfMask)
 }
 
-// SqrMul calculates the product of a^2 and b
-func SqrMul(a, b Gf) Gf {
+// sqrMul calculates the product of a^2 and b
+func sqrMul(a, b Gf) Gf {
 	a64 := uint64(a)
 	b64 := uint64(b)
 
@@ -82,8 +82,8 @@ func SqrMul(a, b Gf) Gf {
 	return uint16(x & gfMask)
 }
 
-// Sqr2Mul calculates the product of a^4 and b
-func Sqr2Mul(a, b Gf) Gf {
+// sqr2Mul calculates the product of a^4 and b
+func sqr2Mul(a, b Gf) Gf {
 	a64 := uint64(a)
 	b64 := uint64(b)
 
@@ -119,12 +119,12 @@ func Inv(a Gf) Gf {
 
 // Div calculates a / b
 func Div(b, a Gf) Gf {
-	tmp3 := SqrMul(b, b)         // b^3
-	tmp15 := Sqr2Mul(tmp3, tmp3) // b^15 = b^(3*2*2+3)
-	out := Sqr2(tmp15)
-	out = Sqr2Mul(out, tmp15) // b^255 = b^(15*4*4+15)
-	out = Sqr2(out)
-	out = Sqr2Mul(out, tmp15) // b^4095 = b^(255*2*2*2*2+15)
+	tmp3 := sqrMul(b, b)         // b^3
+	tmp15 := sqr2Mul(tmp3, tmp3) // b^15 = b^(3*2*2+3)
+	out := sqr2(tmp15)
+	out = sqr2Mul(out, tmp15) // b^255 = b^(15*4*4+15)
+	out = sqr2(out)
+	out = sqr2Mul(out, tmp15) // b^4095 = b^(255*2*2*2*2+15)
 
-	return SqrMul(out, a) // b^8190 = b^(4095*2) = b^-1
+	return sqrMul(out, a) // b^8190 = b^(4095*2) = b^-1
 }

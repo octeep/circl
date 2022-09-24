@@ -22,7 +22,7 @@ func assertEq(t *testing.T, a, b Gf) {
 func TestGeneric(t *testing.T) {
 	t.Run("Add", func(t *testing.T) { testAdd(t, Add) })
 	t.Run("Mul", func(t *testing.T) { testMul(t, Mul) })
-	t.Run("Sqr", func(t *testing.T) { testSqr(t, Sqr) })
+	t.Run("sqr", func(t *testing.T) { testSqr(t, sqr) })
 	t.Run("Inv", func(t *testing.T) { testInv(t, Inv) })
 	t.Run("Div", func(t *testing.T) { testDiv(t, Div) })
 }
