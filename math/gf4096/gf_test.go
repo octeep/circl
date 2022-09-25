@@ -1,7 +1,6 @@
 package gf4096
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/cloudflare/circl/internal/test"
@@ -16,7 +15,9 @@ type (
 )
 
 func assertEq(t *testing.T, a, b Gf) {
-	test.CheckOk(a == b, fmt.Sprintf("%d != %d", a, b), t)
+	if a != b {
+		test.ReportError(t, b, a)
+	}
 }
 
 func TestGeneric(t *testing.T) {
