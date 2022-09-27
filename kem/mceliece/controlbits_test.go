@@ -14,9 +14,9 @@ func TestCBRecursion(t *testing.T) {
 	temp := [2 * n]int32{}
 	out := [2 * n]uint8{}
 	pi32 := rand.Perm(n)
-	pi := [n]uint16{}
+	pi := [n]int16{}
 	for i := 0; i < n; i++ {
-		pi[i] = uint16(pi32[i])
+		pi[i] = int16(pi32[i])
 	}
-	CBRecursion(out[:], 0, 1, pi[:], w, n, temp[:])
+	cbRecursion(out[:], 0, 1, pi[:], w, n, temp[:])
 }

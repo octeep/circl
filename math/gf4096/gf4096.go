@@ -5,8 +5,8 @@ package gf4096
 type Gf = uint16
 
 const (
-	gfBits = 12
-	gfMask = (1 << gfBits) - 1
+	GfBits = 12
+	gfMask = (1 << GfBits) - 1
 )
 
 // Add two Gf elements together. Since an addition in Gf(2) is the same as XOR,
@@ -24,7 +24,7 @@ func Mul(a, b Gf) Gf {
 	tmp := a64 & -(b64 & 1)
 
 	// check if i-th bit of b64 is set, add a64 shifted by i bits if so
-	for i := 1; i < gfBits; i++ {
+	for i := 1; i < GfBits; i++ {
 		tmp ^= a64 * (b64 & (1 << i))
 	}
 

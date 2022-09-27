@@ -6,12 +6,12 @@ package mceliece
 
 import "unsafe"
 
-// Layer implements one layer of the Beneš network.
+// layer implements one layer of the Beneš network.
 // It permutes elements `p` according to control bits `cb` in-place.
 // Thus, one layer of the Beneš network is created and if some control bits are set
 // the corresponding transposition is applied. Parameter `s` equals `n.len()` and
 // `s` configures `stride-2^s` conditional swaps.
-func Layer(p []int16, cb []uint8, s, n int) {
+func layer(p []int16, cb []uint8, s, n int) {
 	stride := 1 << s
 	index := 0
 	for i := int(0); i < n; i += stride * 2 {
@@ -27,7 +27,7 @@ func Layer(p []int16, cb []uint8, s, n int) {
 	}
 }
 
-// CBRecursion implements a recursion step of controlbitsfrompermutation.
+// cbRecursion implements a recursion step of controlbitsfrompermutation.
 // Pick `w ∈ {1, 2, …, 14}. Let `n = 2^w`.
 // `out` must be a reference to a slice with `((2*w-1)*(1<<(w-1))+7)/8` or more bytes.
 // It must zero-initialized before the first recursive call.
@@ -39,7 +39,7 @@ func Layer(p []int16, cb []uint8, s, n int) {
 // After the first recursive iterations, the elements are stored in `temp` and thus `aux`
 // won't be read anymore. The first `n/2` elements are read.
 // nolint:funlen
-func CBRecursion(out []uint8, pos, step int, pi []uint16, w, n int32, temp []int32) {
+func cbRecursion(out []uint8, pos, step int, pi []int16, w, n int32, temp []int32) {
 	A := temp
 	B := temp[n:]
 	if w == 1 {
@@ -191,13 +191,54 @@ func CBRecursion(out []uint8, pos, step int, pi []uint16, w, n int32, temp []int
 
 	pos -= int(2*w-2) * step * int(n/2)
 
-	p := (*uint16)(unsafe.Pointer(&temp[n+n/4]))
+	p := (*int16)(unsafe.Pointer(&temp[n+n/4]))
 	q := unsafe.Slice(p, n) // q can start anywhere between temp+n and temp+n/2
 	for j := int32(0); j < n/2; j++ {
-		q[j] = uint16(A[2*j]&0xffff) >> 1
-		q[j+n/2] = uint16(A[2*j+1]&0xffff) >> 1
+		q[j] = int16(A[2*j]&0xffff) >> 1
+		q[j+n/2] = int16(A[2*j+1]&0xffff) >> 1
 	}
 
-	CBRecursion(out, pos, step*2, q, w-1, n/2, temp)
-	CBRecursion(out, pos+step, step*2, q[n/2:], w-1, n/2, temp)
+	cbRecursion(out, pos, step*2, q, w-1, n/2, temp)
+	cbRecursion(out, pos+step, step*2, q[n/2:], w-1, n/2, temp)
+}
+
+// parameters: 1 <= w <= 14; n = 2^w
+// input: permutation pi of {0,1,...,n-1}
+// output: (2m-1)n/2 control bits at positions 0,1,...
+// output position pos is by definition 1&(out[pos/8]>>(pos&7))
+func controlBitsFromPermutation(out []uint8, pi []int16, w, n int32) {
+	temp := make([]int32, 2*n)
+	piTest := make([]int16, n)
+	for {
+		for i := int32(0); i < (((2*w-1)*n/2)+7)/8; i++ {
+			out[i] = 0
+		}
+
+		cbRecursion(out, 0, 1, pi[:], w, n, temp)
+		// check for correctness
+
+		for i := int32(0); i < n; i++ {
+			piTest[i] = int16(i)
+		}
+
+		ptr := out
+		for i := 0; i < int(w); i++ {
+			layer(piTest, ptr, i, int(n))
+			ptr = ptr[n>>4:]
+		}
+
+		for i := int(w - 2); i >= 0; i-- {
+			layer(piTest, ptr, i, int(n))
+			ptr = ptr[n>>4:]
+		}
+
+		diff := int16(0)
+		for i := int32(0); i < n; i++ {
+			diff |= pi[i] ^ piTest[i]
+		}
+
+		if diff == 0 {
+			break
+		}
+	}
 }

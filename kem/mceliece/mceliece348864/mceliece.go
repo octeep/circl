@@ -5,7 +5,8 @@ import (
 )
 
 const (
-	sysT = 64 // F(y) is 64 degree
+	sysT   = 64 // F(y) is 64 degree
+	gfBits = gf4096.GfBits
 )
 
 type Gf = gf4096.Gf
