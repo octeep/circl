@@ -1,8 +1,10 @@
 package mceliece
 
 import (
-	"math/rand"
+	"fmt"
 	"testing"
+
+	"github.com/cloudflare/circl/internal/test"
 )
 
 const (
@@ -11,12 +13,15 @@ const (
 )
 
 func TestCBRecursion(t *testing.T) {
-	temp := [2 * n]int32{}
-	out := [2 * n]uint8{}
-	pi32 := rand.Perm(n)
-	pi := [n]int16{}
-	for i := 0; i < n; i++ {
-		pi[i] = int16(pi32[i])
+	pi, err := FindTestDataI16("controlbits_kat3_mceliece348864_pi")
+	if err != nil {
+		t.Errorf(err.Error())
+		return
 	}
-	cbRecursion(out[:], 0, 1, pi[:], w, n, temp[:])
+	out := make([]byte, 5888)
+	fmt.Println("a")
+	controlBitsFromPermutation(out, pi, 12, 4096)
+	fmt.Println("b")
+	want, err := FindTestDataByte("controlbits_kat3_mceliece348864_out_ref")
+	test.ReportError(t, out, want)
 }

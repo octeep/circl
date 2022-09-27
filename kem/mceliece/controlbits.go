@@ -4,14 +4,16 @@
 
 package mceliece
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 // layer implements one layer of the Beneš network.
 // It permutes elements `p` according to control bits `cb` in-place.
 // Thus, one layer of the Beneš network is created and if some control bits are set
 // the corresponding transposition is applied. Parameter `s` equals `n.len()` and
 // `s` configures `stride-2^s` conditional swaps.
-func layer(p []int16, cb []uint8, s, n int) {
+func layer(p []int16, cb []byte, s, n int) {
 	stride := 1 << s
 	index := 0
 	for i := int(0); i < n; i += stride * 2 {
@@ -39,11 +41,11 @@ func layer(p []int16, cb []uint8, s, n int) {
 // After the first recursive iterations, the elements are stored in `temp` and thus `aux`
 // won't be read anymore. The first `n/2` elements are read.
 // nolint:funlen
-func cbRecursion(out []uint8, pos, step int, pi []int16, w, n int32, temp []int32) {
+func cbRecursion(out []byte, pos, step int, pi []int16, w, n int32, temp []int32) {
 	A := temp
 	B := temp[n:]
 	if w == 1 {
-		out[pos>>3] ^= uint8(pi[0] << (pos & 7))
+		out[pos>>3] ^= byte(pi[0] << (pos & 7))
 		return
 	}
 
@@ -161,7 +163,7 @@ func cbRecursion(out []uint8, pos, step int, pi []int16, w, n int32, temp []int3
 		Fx := x + fj   /* F[x] */
 		Fx1 := Fx ^ 1  /* F[x+1] */
 
-		out[pos>>3] ^= uint8(fj << (pos & 7))
+		out[pos>>3] ^= byte(fj << (pos & 7))
 		pos += step
 
 		B[x] = (A[x] << 16) | Fx
@@ -179,7 +181,7 @@ func cbRecursion(out []uint8, pos, step int, pi []int16, w, n int32, temp []int3
 		Ly := y + lk   /* L[y] */
 		Ly1 := Ly ^ 1  /* L[y+1] */
 
-		out[pos>>3] ^= uint8(lk << (pos & 7))
+		out[pos>>3] ^= byte(lk << (pos & 7))
 		pos += step
 
 		A[y] = (Ly << 16) | (B[y] & 0xffff)
@@ -206,11 +208,12 @@ func cbRecursion(out []uint8, pos, step int, pi []int16, w, n int32, temp []int3
 // input: permutation pi of {0,1,...,n-1}
 // output: (2m-1)n/2 control bits at positions 0,1,...
 // output position pos is by definition 1&(out[pos/8]>>(pos&7))
-func controlBitsFromPermutation(out []uint8, pi []int16, w, n int32) {
+func controlBitsFromPermutation(out []byte, pi []int16, w, n int32) {
 	temp := make([]int32, 2*n)
 	piTest := make([]int16, n)
+	var ptr []byte
 	for {
-		for i := int32(0); i < (((2*w-1)*n/2)+7)/8; i++ {
+		for i := 0; i < len(out); i++ {
 			out[i] = 0
 		}
 
@@ -221,7 +224,6 @@ func controlBitsFromPermutation(out []uint8, pi []int16, w, n int32) {
 			piTest[i] = int16(i)
 		}
 
-		ptr := out
 		for i := 0; i < int(w); i++ {
 			layer(piTest, ptr, i, int(n))
 			ptr = ptr[n>>4:]
