@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"testing"
 )
 
 func FindTestDataByte(searchKey string) ([]byte, error) {
@@ -22,7 +21,7 @@ func FindTestDataByte(searchKey string) ([]byte, error) {
 	for {
 		line, err := reader.ReadString('\n')
 		if err == io.EOF {
-			return nil, errors.New(fmt.Sprintf("key %s not found", searchKey))
+			return nil, fmt.Errorf("key %s not found", searchKey)
 		}
 		if err != nil {
 			return nil, err
@@ -46,7 +45,7 @@ func FindTestDataByte(searchKey string) ([]byte, error) {
 		}
 
 		if value == "" {
-			return nil, errors.New(fmt.Sprintf("value is nil for key %s", key))
+			return nil, fmt.Errorf("value is nil for key %s", key)
 		}
 
 		if key != searchKey {
@@ -69,7 +68,7 @@ func FindTestDataU16(searchKey string) ([]uint16, error) {
 	}
 
 	out := make([]uint16, len(data)/2)
-	for i := 0; i < len(data); i += 2 {
+	for i := 0; i < len(out); i++ {
 		out[i] = binary.BigEndian.Uint16(data)
 		data = data[2:]
 	}
@@ -127,13 +126,4 @@ func FindTestDataU64(searchKey string) ([]uint64, error) {
 	}
 
 	return out, nil
-}
-
-func Test(t *testing.T) {
-	data, err := FindTestDataByte("controlbits_kat8_mceliece348864_pi")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	fmt.Println(data)
 }

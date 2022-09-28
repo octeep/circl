@@ -213,7 +213,7 @@ func controlBitsFromPermutation(out []byte, pi []int16, w, n int32) {
 	piTest := make([]int16, n)
 	var ptr []byte
 	for {
-		for i := 0; i < len(out); i++ {
+		for i := 0; i < int(((2*w-1)*n/2)+7)/8; i++ {
 			out[i] = 0
 		}
 
@@ -224,6 +224,7 @@ func controlBitsFromPermutation(out []byte, pi []int16, w, n int32) {
 			piTest[i] = int16(i)
 		}
 
+		ptr = out
 		for i := 0; i < int(w); i++ {
 			layer(piTest, ptr, i, int(n))
 			ptr = ptr[n>>4:]
