@@ -10,17 +10,20 @@ import (
 )
 
 const (
-	sysT       = 64 // F(y) is 64 degree
-	gfBits     = gf4096.GfBits
-	gfMask     = gf4096.GfMask
-	unusedBits = 16 - gfBits
-	sysN       = 3488
-	condBytes  = (1 << (gfBits - 4)) * (2*gfBits - 1)
-	irrBytes   = sysT * 2
-	pkNRows    = sysT * gfBits
-	pkNCols    = sysN - pkNRows
-	pkRowBytes = (pkNCols + 7) / 8
-	syndBytes  = (pkNRows + 7) / 8
+	sysT                  = 64 // F(y) is 64 degree
+	gfBits                = gf4096.GfBits
+	gfMask                = gf4096.GfMask
+	unusedBits            = 16 - gfBits
+	sysN                  = 3488
+	condBytes             = (1 << (gfBits - 4)) * (2*gfBits - 1)
+	irrBytes              = sysT * 2
+	pkNRows               = sysT * gfBits
+	pkNCols               = sysN - pkNRows
+	pkRowBytes            = (pkNCols + 7) / 8
+	syndBytes             = (pkNRows + 7) / 8
+	CryptoPublicKeyBytes  = 261120
+	CryptoSecretKeyBytes  = 6492
+	CryptoCiphertextBytes = 128
 )
 
 type Gf = gf4096.Gf
@@ -105,7 +108,7 @@ func polyMul(out *[sysT]Gf, a *[sysT]Gf, b *[sysT]Gf) {
 	}
 }
 
-func GenerateKeyPair(pk, sk []byte, rand io.Reader) error {
+func GenerateKeyPair(pk *[CryptoPublicKeyBytes]byte, sk *[CryptoSecretKeyBytes]byte, rand io.Reader) error {
 	const (
 		irrPolys  = sysN/8 + (1<<gfBits)*4
 		seedIndex = sysN/8 + (1<<gfBits)*4 + sysT*2
@@ -149,7 +152,7 @@ func GenerateKeyPair(pk, sk []byte, rand io.Reader) error {
 			continue
 		}
 
-		temp = sk[32+8 : 32+8+2*sysT]
+		temp = sk[40 : 40+irrBytes]
 		for i := 0; i < sysT; i++ {
 			storeGf(temp, irr[i])
 			temp = temp[2:]
@@ -162,7 +165,7 @@ func GenerateKeyPair(pk, sk []byte, rand io.Reader) error {
 			temp = temp[4:]
 		}
 
-		if !pkGen(pk, sk[40:irrBytes], &perm, &pi, pivots) {
+		if !pkGen(pk, sk[40:40+irrBytes], &perm, &pi, pivots) {
 			continue
 		}
 
@@ -174,7 +177,7 @@ func GenerateKeyPair(pk, sk []byte, rand io.Reader) error {
 }
 
 // nolint:unparam
-func pkGen(pk []byte, sk []byte, perm *[1 << gfBits]uint32, pi *[1 << gfBits]int16, pivots uint64) bool {
+func pkGen(pk *[pkNRows * pkRowBytes]byte, sk []byte, perm *[1 << gfBits]uint32, pi *[1 << gfBits]int16, pivots uint64) bool {
 	buf := [1 << gfBits]uint64{}
 	mat := [pkNRows][sysN / 8]byte{}
 	g := [sysT + 1]Gf{}
@@ -262,21 +265,21 @@ func pkGen(pk []byte, sk []byte, perm *[1 << gfBits]uint32, pi *[1 << gfBits]int
 				for c := 0; c < sysN/8; c++ {
 					mat[row][c] ^= mat[k][c] & mask
 				}
+			}
 
-				// return if not systematic
-				if ((mat[row][i] >> j) & 1) == 0 {
-					return false
-				}
+			// return if not systematic
+			if ((mat[row][i] >> j) & 1) == 0 {
+				return false
+			}
 
-				for k := 0; k < pkNRows; k++ {
-					if k != row {
-						mask = mat[k][i] >> j
-						mask &= 1
-						mask = -mask
+			for k := 0; k < pkNRows; k++ {
+				if k != row {
+					mask := mat[k][i] >> j
+					mask &= 1
+					mask = -mask
 
-						for c := 0; c < sysN/8; c++ {
-							mat[k][c] ^= mat[row][c] & mask
-						}
+					for c := 0; c < sysN/8; c++ {
+						mat[k][c] ^= mat[row][c] & mask
 					}
 				}
 			}
