@@ -4,10 +4,8 @@ import (
 	cryptoRand "crypto/rand"
 	"io"
 
-	"github.com/cloudflare/circl/kem/mceliece"
-
 	"github.com/cloudflare/circl/internal/sha3"
-
+	"github.com/cloudflare/circl/kem/mceliece"
 	"github.com/cloudflare/circl/math/gf4096"
 )
 
@@ -107,7 +105,7 @@ func polyMul(out *[sysT]Gf, a *[sysT]Gf, b *[sysT]Gf) {
 	}
 }
 
-func generateKeyPair(pk, sk []byte, rand io.Reader) error {
+func GenerateKeyPair(pk, sk []byte, rand io.Reader) error {
 	const (
 		irrPolys  = sysN/8 + (1<<gfBits)*4
 		seedIndex = sysN/8 + (1<<gfBits)*4 + sysT*2
@@ -122,7 +120,7 @@ func generateKeyPair(pk, sk []byte, rand io.Reader) error {
 	irr := [sysT]Gf{}
 	perm := [1 << gfBits]uint32{}
 	pi := [1 << gfBits]int16{}
-	pivots := uint64(0)
+	pivots := uint64(0xFFFFFFFF)
 
 	if rand == nil {
 		rand = cryptoRand.Reader
@@ -142,7 +140,7 @@ func generateKeyPair(pk, sk []byte, rand io.Reader) error {
 		copy(seed[1:], r[len(r)-32:])
 
 		temp := r[irrPolys:seedIndex]
-		for i := 0; len(temp) > 0; i++ {
+		for i := 0; i < sysT; i++ {
 			f[i] = loadGf(temp)
 			temp = temp[2:]
 		}
@@ -152,23 +150,158 @@ func generateKeyPair(pk, sk []byte, rand io.Reader) error {
 		}
 
 		temp = sk[32+8 : 32+8+2*sysT]
-		for i := 0; len(temp) > 0; i++ {
+		for i := 0; i < sysT; i++ {
 			storeGf(temp, irr[i])
 			temp = temp[2:]
 		}
 
 		// generating permutation
 		temp = r[permIndex:irrPolys]
-		for i := 0; len(temp) > 0; i++ {
+		for i := 0; i < 1<<gfBits; i++ {
 			perm[i] = load4(temp)
 			temp = temp[4:]
 		}
 
-		// TODO: pk_gen
+		if !pkGen(pk, sk[40:irrBytes], &perm, &pi, pivots) {
+			continue
+		}
+
 		mceliece.ControlBitsFromPermutation(sk[32+8+irrBytes:], pi[:], gfBits, 1<<gfBits)
 		copy(sk[sBase:sBase+sysN/8], r[0:sysN/8])
 		store8(sk[32:40], pivots)
 		return nil
+	}
+}
+
+// nolint:unparam
+func pkGen(pk []byte, sk []byte, perm *[1 << gfBits]uint32, pi *[1 << gfBits]int16, pivots uint64) bool {
+	buf := [1 << gfBits]uint64{}
+	mat := [pkNRows][sysN / 8]byte{}
+	g := [sysT + 1]Gf{}
+	L := [sysN]Gf{}
+	inv := [sysN]Gf{}
+
+	g[sysT] = 1
+	for i := 0; i < sysT; i++ {
+		g[i] = loadGf(sk)
+		sk = sk[2:]
+	}
+
+	for i := 0; i < 1<<gfBits; i++ {
+		buf[i] = uint64(perm[i])
+		buf[i] <<= 31
+		buf[i] |= uint64(i)
+	}
+
+	mceliece.UInt64Sort(buf[:], 1<<gfBits)
+
+	for i := 1; i < (1 << gfBits); i++ {
+		if (buf[i-1] >> 31) == (buf[i] >> 31) {
+			return false
+		}
+	}
+
+	for i := 0; i < (1 << gfBits); i++ {
+		pi[i] = int16(buf[i] & gfMask)
+	}
+
+	for i := 0; i < sysN; i++ {
+		L[i] = bitRev(Gf(pi[i]))
+	}
+
+	// filling the matrix
+	root(&inv, &g, &L)
+
+	for i := 0; i < sysN; i++ {
+		inv[i] = gf4096.Inv(inv[i])
+	}
+
+	for i := 0; i < sysT; i++ {
+		for j := 0; j < sysN; j += 8 {
+			for k := 0; k < gfBits; k++ {
+				b := byte(inv[j+7]>>k) & 1
+				b <<= 1
+				b |= byte(inv[j+6]>>k) & 1
+				b <<= 1
+				b |= byte(inv[j+5]>>k) & 1
+				b <<= 1
+				b |= byte(inv[j+4]>>k) & 1
+				b <<= 1
+				b |= byte(inv[j+3]>>k) & 1
+				b <<= 1
+				b |= byte(inv[j+2]>>k) & 1
+				b <<= 1
+				b |= byte(inv[j+1]>>k) & 1
+				b <<= 1
+				b |= byte(inv[j+0]>>k) & 1
+
+				mat[i*gfBits+k][j/8] = b
+			}
+		}
+
+		for j := 0; j < sysN; j++ {
+			inv[j] = gf4096.Mul(inv[j], L[j])
+		}
+	}
+
+	// gaussian elimination
+	for i := 0; i < (pkNRows+7)/8; i++ {
+		for j := 0; j < 8; j++ {
+			row := i*8 + j
+
+			if row >= pkNRows {
+				break
+			}
+
+			for k := row + 1; k < pkNRows; k++ {
+				mask := mat[row][i] ^ mat[k][i]
+				mask >>= j
+				mask &= 1
+				mask = -mask
+
+				for c := 0; c < sysN/8; c++ {
+					mat[row][c] ^= mat[k][c] & mask
+				}
+
+				// return if not systematic
+				if ((mat[row][i] >> j) & 1) == 0 {
+					return false
+				}
+
+				for k := 0; k < pkNRows; k++ {
+					if k != row {
+						mask = mat[k][i] >> j
+						mask &= 1
+						mask = -mask
+
+						for c := 0; c < sysN/8; c++ {
+							mat[k][c] ^= mat[row][c] & mask
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for i := 0; i < pkNRows; i++ {
+		copy(pk[i*pkRowBytes:], mat[i][pkNRows/8:pkNRows/8+pkRowBytes])
+	}
+
+	return true
+}
+
+func eval(f *[sysT + 1]Gf, a Gf) Gf {
+	r := f[sysT]
+	for i := sysT - 1; i >= 0; i-- {
+		r = gf4096.Mul(r, a)
+		r = gf4096.Add(r, f[i])
+	}
+	return r
+}
+
+func root(out *[sysN]Gf, f *[sysT + 1]Gf, l *[sysN]Gf) {
+	for i := 0; i < sysN; i++ {
+		out[i] = eval(f, l[i])
 	}
 }
 
@@ -217,14 +350,14 @@ func store8(out []byte, in uint64) {
 	out[7] = byte((in >> 0x38) & 0xFF)
 }
 
-func load8(in []byte) uint64 {
+/*func load8(in []byte) uint64 {
 	ret := uint64(in[7])
 	for i := 6; i >= 0; i-- {
 		ret <<= 8
 		ret |= uint64(in[i])
 	}
 	return ret
-}
+}*/
 
 func bitRev(a Gf) Gf {
 	a = ((a & 0x00FF) << 8) | ((a & 0xFF00) >> 8)
