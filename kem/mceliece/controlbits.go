@@ -52,7 +52,7 @@ func cbRecursion(out []byte, pos, step int, pi []int16, w, n int32, temp []int32
 	for x := int32(0); x < n; x++ {
 		A[x] = (int32(pi[x]^1) << 16) | int32(pi[x^1])
 	}
-	int32Sort(A[:n]) // A = (id<<16)+pibar
+	int32Sort(A, n) // A = (id<<16)+pibar
 
 	for x := int32(0); x < n; x++ {
 		Ax := A[x]
@@ -68,13 +68,13 @@ func cbRecursion(out []byte, pos, step int, pi []int16, w, n int32, temp []int32
 	for x := int32(0); x < n; x++ {
 		A[x] = (A[x] << 16) | x
 	}
-	int32Sort(A[:n]) // A = (id<<16)+pibar^-1
+	int32Sort(A, n) // A = (id<<16)+pibar^-1
 
 	for x := int32(0); x < n; x++ {
 		// A = (pibar^(-1)<<16)+pibar
 		A[x] = (A[x] << 16) + (B[x] >> 16)
 	}
-	int32Sort(A[:n]) // A = (id<<16)+pibar^2
+	int32Sort(A, n) // A = (id<<16)+pibar^2
 
 	if w <= 10 {
 		for x := int32(0); x < n; x++ {
@@ -87,12 +87,12 @@ func cbRecursion(out []byte, pos, step int, pi []int16, w, n int32, temp []int32
 			for x := int32(0); x < n; x++ {
 				A[x] = ((B[x] & ^0x3ff) << 6) | x /* A = (p<<16)+id */
 			}
-			int32Sort(A[:n]) /* A = (id<<16)+p^{-1} */
+			int32Sort(A, n) /* A = (id<<16)+p^{-1} */
 
 			for x := int32(0); x < n; x++ {
 				A[x] = (A[x] << 20) | B[x] /* A = (p^{-1}<<20)+(p<<10)+c */
 			}
-			int32Sort(A[:n]) /* A = (id<<20)+(pp<<10)+cp */
+			int32Sort(A, n) /* A = (id<<20)+(pp<<10)+cp */
 
 			for x := int32(0); x < n; x++ {
 				ppcpx := A[x] & 0xfffff
@@ -118,7 +118,7 @@ func cbRecursion(out []byte, pos, step int, pi []int16, w, n int32, temp []int32
 			for x := int32(0); x < n; x++ {
 				A[x] = (B[x] &^ 0xffff) | x
 			}
-			int32Sort(A[:n]) /* A = (id<<16)+p^(-1) */
+			int32Sort(A, n) /* A = (id<<16)+p^(-1) */
 
 			for x := int32(0); x < n; x++ {
 				A[x] = (A[x] << 16) | (B[x] & 0xffff)
@@ -130,14 +130,14 @@ func cbRecursion(out []byte, pos, step int, pi []int16, w, n int32, temp []int32
 					B[x] = (A[x] & ^0xffff) | (B[x] >> 16)
 				}
 				/* B = (p^(-1)<<16)+p */
-				int32Sort(B[:n]) /* B = (id<<16)+p^(-2) */
+				int32Sort(B, n) /* B = (id<<16)+p^(-2) */
 				for x := int32(0); x < n; x++ {
 					B[x] = (B[x] << 16) | (A[x] & 0xffff)
 				}
 				/* B = (p^(-2)<<16)+c */
 			}
 
-			int32Sort(A[:n])
+			int32Sort(A, n)
 			/* A = id<<16+cp */
 			for x := int32(0); x < n; x++ {
 				cpx := (B[x] & ^0xffff) | (A[x] & 0xffff)
@@ -155,7 +155,7 @@ func cbRecursion(out []byte, pos, step int, pi []int16, w, n int32, temp []int32
 	for x := int32(0); x < n; x++ {
 		A[x] = (int32(pi[x]) << 16) + x
 	}
-	int32Sort(A[:n]) /* A = (id<<16)+pi^(-1) */
+	int32Sort(A, n) /* A = (id<<16)+pi^(-1) */
 
 	for j := int32(0); j < n/2; j++ {
 		x := 2 * j
@@ -171,7 +171,7 @@ func cbRecursion(out []byte, pos, step int, pi []int16, w, n int32, temp []int32
 	}
 	/* B = (pi^(-1)<<16)+F */
 
-	int32Sort(B[:n]) /* B = (id<<16)+F(pi) */
+	int32Sort(B, n) /* B = (id<<16)+F(pi) */
 
 	pos += int(2*w-3) * step * int(n/2)
 
@@ -189,7 +189,7 @@ func cbRecursion(out []byte, pos, step int, pi []int16, w, n int32, temp []int32
 	}
 	/* A = (L<<16)+F(pi) */
 
-	int32Sort(A[:n]) /* A = (id<<16)+F(pi(L)) = (id<<16)+M */
+	int32Sort(A, n) /* A = (id<<16)+F(pi(L)) = (id<<16)+M */
 
 	pos -= int(2*w-2) * step * int(n/2)
 
