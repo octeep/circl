@@ -204,11 +204,12 @@ func cbRecursion(out []byte, pos, step int, pi []int16, w, n int32, temp []int32
 	cbRecursion(out, pos+step, step*2, q[n/2:], w-1, n/2, temp)
 }
 
+// ControlBitsFromPermutation computes control bits
 // parameters: 1 <= w <= 14; n = 2^w
 // input: permutation pi of {0,1,...,n-1}
 // output: (2m-1)n/2 control bits at positions 0,1,...
 // output position pos is by definition 1&(out[pos/8]>>(pos&7))
-func controlBitsFromPermutation(out []byte, pi []int16, w, n int32) {
+func ControlBitsFromPermutation(out []byte, pi []int16, w, n int32) {
 	temp := make([]int32, 2*n)
 	piTest := make([]int16, n)
 	var ptr []byte

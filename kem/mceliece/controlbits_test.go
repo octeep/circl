@@ -79,7 +79,7 @@ func TestControlBitsFromPermutationKat3Mceliece348864(t *testing.T) {
 		return
 	}
 	out := make([]byte, 5888)
-	controlBitsFromPermutation(out, pi, 12, 4096)
+	ControlBitsFromPermutation(out, pi, 12, 4096)
 	if !reflect.DeepEqual(out, want) {
 		test.ReportError(t, out, want)
 	}
@@ -97,7 +97,7 @@ func TestControlBitsFromPermutationKat8Mceliece348864(t *testing.T) {
 		return
 	}
 	out := make([]byte, 5888)
-	controlBitsFromPermutation(out, pi, 12, 4096)
+	ControlBitsFromPermutation(out, pi, 12, 4096)
 	if !reflect.DeepEqual(out, want) {
 		test.ReportError(t, out, want)
 	}
@@ -115,7 +115,7 @@ func TestControlBitsFromPermutationKat9Mceliece348864(t *testing.T) {
 		return
 	}
 	out := make([]byte, 5888)
-	controlBitsFromPermutation(out, pi, 12, 4096)
+	ControlBitsFromPermutation(out, pi, 12, 4096)
 	if !reflect.DeepEqual(out, want) {
 		test.ReportError(t, out, want)
 	}

@@ -6,7 +6,7 @@ type Gf = uint16
 
 const (
 	GfBits = 12
-	gfMask = (1 << GfBits) - 1
+	GfMask = (1 << GfBits) - 1
 )
 
 // Add two Gf elements together. Since an addition in Gf(2) is the same as XOR,
@@ -37,7 +37,7 @@ func Mul(a, b Gf) Gf {
 	tmp ^= t >> 9
 	tmp ^= t >> 12
 
-	return uint16(tmp & gfMask)
+	return uint16(tmp & GfMask)
 }
 
 // sqr calculates the square of Gf element a
@@ -56,7 +56,7 @@ func sqr(a Gf) Gf {
 	a32 ^= t >> 9
 	a32 ^= t >> 12
 
-	return uint16(a32 & gfMask)
+	return uint16(a32 & GfMask)
 }
 
 // Inv calculates the multiplicative inverse of Gf element a
