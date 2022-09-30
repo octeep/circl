@@ -66,6 +66,9 @@ func TestGenerateKeyPair(t *testing.T) {
 		sessionSeed := make([]byte, 32)
 		dRng.Fill(sessionSeed)
 		pk, sk := scheme.DeriveKeyPair(sessionSeed)
+		if !pk.Equal(sk.Public()) {
+			t.Fatal("sk.Public() does not match pk")
+		}
 		pkBytes, err := pk.MarshalBinary()
 		if err != nil {
 			t.Fatal(err)

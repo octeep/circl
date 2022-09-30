@@ -544,6 +544,14 @@ func (sk *PrivateKey) MarshalBinary() ([]byte, error) {
 	return ret[:], nil
 }
 
+// MarshalCompressedBinary returns a 32-byte seed that can be used to regenerate
+// the key pair when passed to DeriveKeyPair
+func (sk *PrivateKey) MarshalCompressedBinary() []byte {
+	seed := [32]byte{}
+	copy(seed[:], sk.sk[:32])
+	return seed[:]
+}
+
 func (sk *PrivateKey) Equal(other kem.PrivateKey) bool {
 	oth, ok := other.(*PrivateKey)
 	if !ok {
@@ -561,7 +569,8 @@ func (pk *PublicKey) Equal(other kem.PublicKey) bool {
 }
 
 func (sk *PrivateKey) Public() kem.PublicKey {
-	panic("TODO")
+	pk, _ := sch.DeriveKeyPair(sk.MarshalCompressedBinary())
+	return pk
 }
 
 func (pk *PublicKey) MarshalBinary() ([]byte, error) {
