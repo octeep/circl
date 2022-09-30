@@ -3,7 +3,9 @@ package mceliece348864
 import (
 	"bytes"
 	cryptoRand "crypto/rand"
+	"io"
 
+	"github.com/cloudflare/circl/internal/nist"
 	"github.com/cloudflare/circl/internal/sha3"
 	"github.com/cloudflare/circl/kem"
 	"github.com/cloudflare/circl/kem/mceliece"
@@ -24,8 +26,10 @@ const (
 	syndBytes             = (pkNRows + 7) / 8
 	PublicKeySize         = 261120
 	PrivateKeySize        = 6492
-	CryptoCiphertextBytes = 128
+	CiphertextSize        = 128
+	SharedKeySize         = 32
 	seedSize              = 32
+	encapsulationSeedSize = 48
 )
 
 type PublicKey struct {
@@ -36,7 +40,10 @@ type PrivateKey struct {
 	sk [PrivateKeySize]byte
 }
 
-type gf = gf4096.Gf
+type (
+	gf       = gf4096.Gf
+	randFunc = func(pool []byte) error
+)
 
 func deriveKeyPair(entropy []byte) (*PublicKey, *PrivateKey) {
 	const (
@@ -104,6 +111,138 @@ func deriveKeyPair(entropy []byte) (*PublicKey, *PrivateKey) {
 		store8(sk[32:40], pivots)
 		return &PublicKey{pk: pk}, &PrivateKey{sk: sk}
 	}
+}
+
+func encrypt(s, pk, e []byte, rand randFunc) error {
+	err := genE(e, rand)
+	if err != nil {
+		return err
+	}
+	syndrome(s, pk, e)
+	return nil
+}
+
+func kemEncapsulate(c *[128]byte, key *[32]byte, pk *[261120]byte, rand randFunc) error {
+	twoE := [1 + sysN/8]byte{2}
+	e := twoE[1:]
+	oneEC := [1 + sysN/8 + (syndBytes + 32)]byte{1}
+	err := encrypt(c[:], pk[:], e, rand)
+	if err != nil {
+		return err
+	}
+	err = shake256(c[syndBytes:syndBytes+32], twoE[:])
+	if err != nil {
+		return err
+	}
+	copy(oneEC[1:1+sysN/8], twoE[1:1+sysN/8])
+	copy(oneEC[1+sysN/8:1+sysN/8+syndBytes+32], c[0:syndBytes+32])
+	err = shake256(key[0:32], oneEC[:])
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func genE(e []byte, rand randFunc) error {
+	ind := [sysT]uint16{}
+	val := [sysT]byte{}
+	for {
+		buf := make([]byte, sysT*4)
+		err := rand(buf)
+		if err != nil {
+			return err
+		}
+
+		nums := [sysT * 2]uint16{}
+		for i := 0; i < sysT*2; i++ {
+			nums[i] = loadGf(buf[:])
+			buf = buf[2:]
+		}
+
+		count := 0
+		for i := 0; i < sysT*2 && count < sysT; i++ {
+			if nums[i] < sysN {
+				ind[count] = nums[i]
+				count++
+			}
+		}
+		if count < sysT {
+			continue
+		}
+
+		eq := false
+		for i := 1; i < sysT; i++ {
+			for j := 0; j < i; j++ {
+				if ind[i] == ind[j] {
+					eq = true
+				}
+			}
+		}
+
+		if !eq {
+			break
+		}
+	}
+
+	for j := 0; j < sysT; j++ {
+		val[j] = 1 << (ind[j] & 7)
+	}
+
+	for i := uint16(0); i < sysN/8; i++ {
+		e[i] = 0
+
+		for j := 0; j < sysT; j++ {
+			mask := sameMask(i, ind[j]>>3)
+			e[i] |= val[j] & mask
+		}
+	}
+	return nil
+}
+
+/* input: public key pk, error vector e */
+/* output: syndrome s */
+func syndrome(s []byte, pk []byte, e []byte) {
+	row := [sysN / 8]byte{}
+	var b byte
+
+	for i := 0; i < syndBytes; i++ {
+		s[i] = 0
+	}
+
+	for i := 0; i < pkNRows; i++ {
+		for j := 0; j < sysN/8; j++ {
+			row[j] = 0
+		}
+
+		for j := 0; j < pkRowBytes; j++ {
+			row[sysN/8-pkRowBytes+j] = pk[j]
+		}
+
+		row[i/8] |= 1 << (i % 8)
+
+		b = 0
+		for j := 0; j < sysN/8; j++ {
+			b ^= row[j] & e[j]
+		}
+
+		b ^= b >> 4
+		b ^= b >> 2
+		b ^= b >> 1
+		b &= 1
+
+		s[i/8] |= b << (i % 8)
+
+		pk = pk[pkRowBytes:]
+	}
+}
+
+func sameMask(x uint16, y uint16) byte {
+	mask := uint32(x ^ y)
+	mask -= 1
+	mask >>= 31
+	mask = -mask
+
+	return byte(mask & 0xFF)
 }
 
 // check if element is 0, returns a mask with all bits set if so, and 0 otherwise
@@ -392,9 +531,9 @@ func (*scheme) Name() string               { return "McEliece348864" }
 func (*scheme) PublicKeySize() int         { return PublicKeySize }
 func (*scheme) PrivateKeySize() int        { return PrivateKeySize }
 func (*scheme) SeedSize() int              { return seedSize }
-func (*scheme) SharedKeySize() int         { return 0 }
-func (*scheme) CiphertextSize() int        { return 0 }
-func (*scheme) EncapsulationSeedSize() int { return 0 }
+func (*scheme) SharedKeySize() int         { return SharedKeySize }
+func (*scheme) CiphertextSize() int        { return CiphertextSize }
+func (*scheme) EncapsulationSeedSize() int { return encapsulationSeedSize }
 
 func (sk *PrivateKey) Scheme() kem.Scheme { return sch }
 func (pk *PublicKey) Scheme() kem.Scheme  { return sch }
@@ -433,7 +572,7 @@ func (pk *PublicKey) MarshalBinary() ([]byte, error) {
 
 func (*scheme) GenerateKeyPair() (kem.PublicKey, kem.PrivateKey, error) {
 	seed := [32]byte{}
-	_, err := cryptoRand.Reader.Read(seed[:])
+	_, err := io.ReadFull(cryptoRand.Reader, seed[:])
 	if err != nil {
 		return nil, nil, err
 	}
@@ -448,12 +587,44 @@ func (*scheme) DeriveKeyPair(seed []byte) (kem.PublicKey, kem.PrivateKey) {
 	return deriveKeyPair(seed)
 }
 
+func encapsulate(pk kem.PublicKey, rand randFunc) (ct, ss []byte, err error) {
+	ppk, ok := pk.(*PublicKey)
+	if !ok {
+		return nil, nil, kem.ErrTypeMismatch
+	}
+
+	ciphertext := [CiphertextSize]byte{}
+	sharedSecret := [SharedKeySize]byte{}
+	err = kemEncapsulate(&ciphertext, &sharedSecret, &ppk.pk, rand)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ciphertext[:], sharedSecret[:], nil
+}
+
 func (*scheme) Encapsulate(pk kem.PublicKey) (ct, ss []byte, err error) {
-	panic("TODO")
+	return encapsulate(pk, func(pool []byte) error {
+		_, err2 := io.ReadFull(cryptoRand.Reader, pool)
+		return err2
+	})
 }
 
 func (*scheme) EncapsulateDeterministically(pk kem.PublicKey, seed []byte) (ct, ss []byte, err error) {
-	panic("TODO")
+	// This follow test standards
+	if len(seed) != encapsulationSeedSize {
+		return nil, nil, kem.ErrSeedSize
+	}
+
+	entropy := [48]byte{}
+	waste := [32]byte{}
+	copy(entropy[:], seed)
+	dRng := nist.NewDRBG(&entropy)
+	dRng.Fill(waste[:])
+
+	return encapsulate(pk, func(pool []byte) error {
+		dRng.Fill(pool)
+		return nil
+	})
 }
 
 func (*scheme) Decapsulate(sk kem.PrivateKey, ct []byte) ([]byte, error) {

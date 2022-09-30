@@ -1,6 +1,9 @@
 package mceliece348864
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"io"
 	"reflect"
 	"testing"
 
@@ -8,29 +11,7 @@ import (
 	"github.com/cloudflare/circl/internal/test"
 )
 
-type Rng struct {
-	rng *nist.DRBG
-}
-
-func (g *Rng) Read(p []byte) (n int, err error) {
-	g.rng.Fill(p)
-	return len(p), nil
-}
-
 const katNum = 10
-
-func newRng() *Rng {
-	entropy := [48]byte{}
-	for i := 0; i < len(entropy); i++ {
-		entropy[i] = byte(i)
-	}
-	return newSeededRng(&entropy)
-}
-
-func newSeededRng(entropy *[48]byte) *Rng {
-	rng := nist.NewDRBG(entropy)
-	return &Rng{rng: &rng}
-}
 
 func fill(t *[sysT]gf, v gf) {
 	for i := 0; i < sysT; i++ {
@@ -44,17 +25,69 @@ func assertEq(t *testing.T, a *[sysT]gf, b []gf) {
 	}
 }
 
+func printHex(t *testing.T, writer io.Writer, header string, bytes []byte) {
+	_, err := fmt.Fprint(writer, header)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = fmt.Fprintf(writer, "%X", bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = fmt.Fprintf(writer, "\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestGenerateKeyPair(t *testing.T) {
-	rng := newRng()
+	entropy := [48]byte{}
+	for i := 0; i < len(entropy); i++ {
+		entropy[i] = byte(i)
+	}
+	rng := nist.NewDRBG(&entropy)
+
+	digest := sha256.New()
+	_, err := fmt.Fprintf(digest, "# kem/mceliece348864\n\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheme := Scheme()
 
 	for i := 0; i < katNum; i++ {
-		s := [48]byte{}
-		_, _ = rng.Read(s[:])
+		fmt.Fprintf(digest, "count = %d\n", i)
 
-		dRng := newSeededRng(&s)
-		entropy := make([]byte, 32)
-		_, _ = dRng.Read(entropy)
-		Scheme().DeriveKeyPair(entropy)
+		s := [48]byte{}
+		rng.Fill(s[:])
+
+		dRng := nist.NewDRBG(&s)
+		sessionSeed := make([]byte, 32)
+		dRng.Fill(sessionSeed)
+		pk, sk := scheme.DeriveKeyPair(sessionSeed)
+		pkBytes, err := pk.MarshalBinary()
+		if err != nil {
+			t.Fatal(err)
+		}
+		skBytes, err := sk.MarshalBinary()
+		if err != nil {
+			t.Fatal(err)
+		}
+		ct, ss, err := scheme.EncapsulateDeterministically(pk, s[:])
+		if err != nil {
+			t.Fatal(err)
+		}
+		printHex(t, digest, "seed = ", s[:])
+		printHex(t, digest, "pk = ", pkBytes)
+		printHex(t, digest, "sk = ", skBytes)
+		printHex(t, digest, "ct = ", ct)
+		printHex(t, digest, "ss = ", ss)
+		fmt.Fprintf(digest, "\n")
+	}
+
+	if fmt.Sprintf("%x", digest.Sum(nil)) != "083224b827fc165a0f0e395e1905d7056ca309bf88a84c9b21ca658eddcbf140" {
+		t.Fatal()
 	}
 }
 
