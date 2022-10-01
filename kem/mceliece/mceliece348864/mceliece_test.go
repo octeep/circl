@@ -81,6 +81,13 @@ func TestGenerateKeyPair(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		dss, err := scheme.Decapsulate(sk, ct)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(dss, ss) {
+			test.ReportError(t, fmt.Sprintf("%X", dss), fmt.Sprintf("%X", ss))
+		}
 		printHex(t, digest, "seed = ", s[:])
 		printHex(t, digest, "pk = ", pkBytes)
 		printHex(t, digest, "sk = ", skBytes)

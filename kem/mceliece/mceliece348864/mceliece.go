@@ -102,7 +102,7 @@ func deriveKeyPair(entropy []byte) (*PublicKey, *PrivateKey) {
 			temp = temp[4:]
 		}
 
-		if !pkGen(&pk, sk[40:40+irrBytes], &perm, &pi, pivots) {
+		if !pkGen(&pk, sk[40:40+irrBytes], &perm, &pi, &pivots) {
 			continue
 		}
 
@@ -122,7 +122,7 @@ func encrypt(s, pk, e []byte, rand randFunc) error {
 	return nil
 }
 
-func kemEncapsulate(c *[128]byte, key *[32]byte, pk *[261120]byte, rand randFunc) error {
+func kemEncapsulate(c *[CiphertextSize]byte, key *[SharedKeySize]byte, pk *[PublicKeySize]byte, rand randFunc) error {
 	twoE := [1 + sysN/8]byte{2}
 	e := twoE[1:]
 	oneEC := [1 + sysN/8 + (syndBytes + 32)]byte{1}
@@ -141,6 +141,37 @@ func kemEncapsulate(c *[128]byte, key *[32]byte, pk *[261120]byte, rand randFunc
 		return err
 	}
 	return nil
+}
+
+func kemDecapsulate(key *[SharedKeySize]byte, c *[CiphertextSize]byte, sk *[PrivateKeySize]byte) error {
+	conf := [32]byte{}
+	twoE := [1 + sysN/8]byte{2}
+	e := twoE[1:]
+	preimage := [1 + sysN/8 + (syndBytes + 32)]byte{}
+	s := sk[40+irrBytes+condBytes:]
+
+	retDecrypt := decrypt((*[sysN / 8]byte)(e[:sysN/8]), sk[40:], (*[syndBytes]byte)(c[:syndBytes]))
+	err := shake256(conf[0:32], twoE[:])
+	if err != nil {
+		return err
+	}
+
+	var retConfirm byte
+	for i := 0; i < 32; i++ {
+		retConfirm |= conf[i] ^ c[syndBytes+i]
+	}
+
+	m := retDecrypt | uint16(retConfirm)
+	m -= 1
+	m >>= 8
+
+	preimage[0] = byte(m & 1)
+	for i := 0; i < sysN/8; i++ {
+		preimage[1+i] = (byte(^m) & s[i]) | (byte(m) & e[i])
+	}
+
+	copy(preimage[1+sysN/8:][:syndBytes+32], c[0:syndBytes+32])
+	return shake256(key[0:32], preimage[:])
 }
 
 func genE(e []byte, rand randFunc) error {
@@ -245,6 +276,148 @@ func sameMask(x uint16, y uint16) byte {
 	return byte(mask & 0xFF)
 }
 
+func supportGen(s *[sysN]gf, c *[condBytes]byte) {
+	var a gf
+	L := [gfBits][(1 << gfBits) / 8]byte{}
+	for i := 0; i < (1 << gfBits); i++ {
+		a = bitRev(gf(i))
+		for j := 0; j < gfBits; j++ {
+			L[j][i/8] |= byte(((a >> j) & 1) << (i % 8))
+		}
+	}
+	for j := 0; j < gfBits; j++ {
+		applyBenes(&L[j], c, 0)
+	}
+	for i := 0; i < sysN; i++ {
+		s[i] = 0
+		for j := gfBits - 1; j >= 0; j-- {
+			s[i] <<= 1
+			s[i] |= uint16(L[j][i/8]>>(i%8)) & 1
+		}
+	}
+}
+
+func synd(out *[sysT * 2]gf, f *[sysT + 1]gf, L *[sysN]gf, r *[sysN / 8]byte) {
+	for j := 0; j < 2*sysT; j++ {
+		out[j] = 0
+	}
+
+	for i := 0; i < sysN; i++ {
+		c := uint16(r[i/8]>>(i%8)) & 1
+		e := eval(f, L[i])
+		eInv := gf4096.Inv(gf4096.Mul(e, e))
+		for j := 0; j < 2*sysT; j++ {
+			out[j] = gf4096.Add(out[j], gf4096.Mul(eInv, c))
+			eInv = gf4096.Mul(eInv, L[i])
+		}
+	}
+}
+
+func min(a, b int) int {
+	if a > b {
+		return b
+	}
+	return a
+}
+
+func bm(out *[sysT + 1]gf, s *[2 * sysT]gf) {
+	var L, mle, mne uint16
+	T := [sysT + 1]gf{}
+	C := [sysT + 1]gf{}
+	B := [sysT + 1]gf{}
+	var b, d, f gf
+	b = 1
+	B[1] = 1
+	C[0] = 1
+	for N := 0; N < 2*sysT; N++ {
+		d = 0
+		for i := 0; i <= min(N, sysT); i++ {
+			d ^= gf4096.Mul(C[i], s[N-i])
+		}
+		mne = d
+		mne -= 1
+		mne >>= 15
+		mne -= 1
+		mle = uint16(N)
+		mle -= 2 * L
+		mle >>= 15
+		mle -= 1
+		mle &= mne
+		for i := 0; i <= sysT; i++ {
+			T[i] = C[i]
+		}
+		f = gf4096.Div(b, d)
+		for i := 0; i <= sysT; i++ {
+			C[i] ^= gf4096.Mul(f, B[i]) & mne
+		}
+		L = (L & ^mle) | ((uint16(N) + 1 - L) & mle)
+
+		for i := 0; i <= sysT; i++ {
+			B[i] = (B[i] & ^mle) | (T[i] & mle)
+		}
+
+		b = (b & ^mle) | (d & mle)
+
+		for i := sysT; i >= 1; i-- {
+			B[i] = B[i-1]
+		}
+		B[0] = 0
+	}
+
+	for i := 0; i <= sysT; i++ {
+		out[i] = C[sysT-i]
+	}
+}
+
+func decrypt(e *[sysN / 8]byte, sk []byte, c *[syndBytes]byte) uint16 {
+	var check uint16
+	w := 0
+	r := [sysN / 8]byte{}
+
+	g := [sysT + 1]gf{}
+	L := [sysN]gf{}
+
+	s := [sysT * 2]gf{}
+	sCmp := [sysT * 2]gf{}
+	locator := [sysT + 1]gf{}
+	images := [sysN]gf{}
+
+	for i := 0; i < syndBytes; i++ {
+		r[i] = c[i]
+	}
+	for i := 0; i < sysT; i++ {
+		g[i] = loadGf(sk)
+		sk = sk[2:]
+	}
+	g[sysT] = 1
+
+	supportGen(&L, (*[condBytes]byte)(sk[irrBytes:irrBytes+condBytes]))
+	synd(&s, &g, &L, &r)
+	bm(&locator, &s)
+	root(&images, &locator, &L)
+
+	for i := 0; i < sysN/8; i++ {
+		e[i] = 0
+	}
+	for i := 0; i < sysN; i++ {
+		t := isZeroMask(images[i]) & 1
+
+		e[i/8] |= byte(t << (i % 8))
+		w += int(t)
+	}
+
+	synd(&sCmp, &g, &L, e)
+	check = uint16(w) ^ sysT
+	for i := 0; i < sysT*2; i++ {
+		check |= s[i] ^ sCmp[i]
+	}
+
+	check -= 1
+	check >>= 15
+
+	return check ^ 1
+}
+
 // check if element is 0, returns a mask with all bits set if so, and 0 otherwise
 func isZeroMask(element gf) uint16 {
 	t := uint32(element) - 1
@@ -326,7 +499,7 @@ func polyMul(out *[sysT]gf, a *[sysT]gf, b *[sysT]gf) {
 }
 
 // nolint:unparam
-func pkGen(pk *[pkNRows * pkRowBytes]byte, sk []byte, perm *[1 << gfBits]uint32, pi *[1 << gfBits]int16, pivots uint64) bool {
+func pkGen(pk *[pkNRows * pkRowBytes]byte, sk []byte, perm *[1 << gfBits]uint32, pi *[1 << gfBits]int16, pivots *uint64) bool {
 	buf := [1 << gfBits]uint64{}
 	mat := [pkNRows][sysN / 8]byte{}
 	g := [sysT + 1]gf{}
@@ -502,14 +675,14 @@ func store8(out []byte, in uint64) {
 	out[7] = byte((in >> 0x38) & 0xFF)
 }
 
-/*func load8(in []byte) uint64 {
+func load8(in []byte) uint64 {
 	ret := uint64(in[7])
 	for i := 6; i >= 0; i-- {
 		ret <<= 8
 		ret |= uint64(in[i])
 	}
 	return ret
-}*/
+}
 
 func bitRev(a gf) gf {
 	a = ((a & 0x00FF) << 8) | ((a & 0xFF00) >> 8)
@@ -637,7 +810,20 @@ func (*scheme) EncapsulateDeterministically(pk kem.PublicKey, seed []byte) (ct, 
 }
 
 func (*scheme) Decapsulate(sk kem.PrivateKey, ct []byte) ([]byte, error) {
-	panic("TODO")
+	ssk, ok := sk.(*PrivateKey)
+	if !ok {
+		return nil, kem.ErrTypeMismatch
+	}
+
+	if len(ct) != CiphertextSize {
+		return nil, kem.ErrCiphertextSize
+	}
+	ss := [SharedKeySize]byte{}
+	err := kemDecapsulate(&ss, (*[128]byte)(ct), &ssk.sk)
+	if err != nil {
+		return nil, err
+	}
+	return ss[:], nil
 }
 
 func (*scheme) UnmarshalBinaryPublicKey(buf []byte) (kem.PublicKey, error) {
