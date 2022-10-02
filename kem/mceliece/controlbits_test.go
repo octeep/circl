@@ -4,8 +4,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cloudflare/circl/kem/mceliece/testdata"
+
 	"github.com/cloudflare/circl/internal/test"
 )
+
+const testPath = "testdata/testdata.txt"
 
 func TestLayer1(t *testing.T) {
 	N := 4
@@ -68,12 +72,12 @@ func TestRecursion2(t *testing.T) {
 }
 
 func TestControlBitsFromPermutationKat3Mceliece348864(t *testing.T) {
-	pi, err := FindTestDataI16("controlbits_kat3_mceliece348864_pi")
+	pi, err := testdata.FindTestDataI16("controlbits_kat3_mceliece348864_pi", testPath)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
-	want, err := FindTestDataByte("controlbits_kat3_mceliece348864_out_ref")
+	want, err := testdata.FindTestDataByte("controlbits_kat3_mceliece348864_out_ref", testPath)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
@@ -86,12 +90,12 @@ func TestControlBitsFromPermutationKat3Mceliece348864(t *testing.T) {
 }
 
 func TestControlBitsFromPermutationKat8Mceliece348864(t *testing.T) {
-	pi, err := FindTestDataI16("controlbits_kat8_mceliece348864_pi")
+	pi, err := testdata.FindTestDataI16("controlbits_kat8_mceliece348864_pi", testPath)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
-	want, err := FindTestDataByte("controlbits_kat8_mceliece348864_out_ref")
+	want, err := testdata.FindTestDataByte("controlbits_kat8_mceliece348864_out_ref", testPath)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
@@ -104,12 +108,12 @@ func TestControlBitsFromPermutationKat8Mceliece348864(t *testing.T) {
 }
 
 func TestControlBitsFromPermutationKat9Mceliece348864(t *testing.T) {
-	pi, err := FindTestDataI16("controlbits_kat9_mceliece348864_pi")
+	pi, err := testdata.FindTestDataI16("controlbits_kat9_mceliece348864_pi", testPath)
 	if err != nil {
 		t.Errorf(err.Error())
 		return
 	}
-	want, err := FindTestDataByte("controlbits_kat9_mceliece348864_out_ref")
+	want, err := testdata.FindTestDataByte("controlbits_kat9_mceliece348864_out_ref", testPath)
 	if err != nil {
 		t.Errorf(err.Error())
 		return

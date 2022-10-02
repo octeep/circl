@@ -1,6 +1,6 @@
 package mceliece348864
 
-func transpose64x64Inplace(out [64]uint64) {
+func transpose64x64Inplace(out *[64]uint64) {
 	masks := [6][2]uint64{
 		{0x5555555555555555, 0xAAAAAAAAAAAAAAAA},
 		{0x3333333333333333, 0xCCCCCCCCCCCCCCCC},
@@ -29,71 +29,58 @@ func layer(data, bits []uint64, lgs int) {
 	s := 1 << lgs
 	for i := 0; i < 64; i += s * 2 {
 		for j := i; j < i+s; j++ {
-			d := data[j+0] ^ data[j+s]
+			d := data[j] ^ data[j+s]
 			d &= bits[index]
 			index++
-			data[j+0] ^= d
+			data[j] ^= d
 			data[j+s] ^= d
 		}
 	}
 }
 
-func applyBenes(r *[512]byte, bits *[condBytes]byte, rev int) {
-	var condPtr []byte
-	var inc int
+func applyBenes(r *[512]byte, bits *[5888]byte) {
 	bs := [64]uint64{}
 	cond := [64]uint64{}
 	for i := 0; i < 64; i++ {
 		bs[i] = load8(r[i*8:])
 	}
 
-	if rev == 0 {
-		inc = 256
-		condPtr = bits[:]
-	} else {
-		inc = -256
-		condPtr = bits[(2*gfBits-2)*25:]
-	}
+	transpose64x64Inplace(&bs)
 
-	transpose64x64Inplace(bs)
 	for low := 0; low <= 5; low++ {
 		for i := 0; i < 64; i++ {
-			cond[i] = uint64(load4(condPtr[i*4:]))
+			cond[i] = uint64(load4(bits[low*256+i*4:]))
 		}
-		transpose64x64Inplace(cond)
+		transpose64x64Inplace(&cond)
 		layer(bs[:], cond[:], low)
-		condPtr = condPtr[inc:]
 	}
 
-	transpose64x64Inplace(bs)
+	transpose64x64Inplace(&bs)
 
 	for low := 0; low <= 5; low++ {
 		for i := 0; i < 32; i++ {
-			cond[i] = load8(condPtr[i*8:])
+			cond[i] = load8(bits[(low+6)*256+i*8:])
 		}
 		layer(bs[:], cond[:], low)
-		condPtr = condPtr[inc:]
 	}
 	for low := 4; low >= 0; low-- {
-		for i := 0; i < 64; i++ {
-			cond[i] = uint64(load4(condPtr[i*4:]))
+		for i := 0; i < 32; i++ {
+			cond[i] = load8(bits[(4-low+6+6)*256+i*8:])
 		}
-		transpose64x64Inplace(cond)
 		layer(bs[:], cond[:], low)
-		condPtr = condPtr[inc:]
 	}
-	transpose64x64Inplace(bs)
+
+	transpose64x64Inplace(&bs)
 
 	for low := 5; low >= 0; low-- {
 		for i := 0; i < 64; i++ {
-			cond[i] = uint64(load4(condPtr[i*4:]))
+			cond[i] = uint64(load4(bits[(5-low+6+6+5)*256+i*4:]))
 		}
-		transpose64x64Inplace(cond)
+		transpose64x64Inplace(&cond)
 		layer(bs[:], cond[:], low)
-		condPtr = condPtr[inc:]
 	}
+	transpose64x64Inplace(&bs)
 
-	transpose64x64Inplace(bs)
 	for i := 0; i < 64; i++ {
 		store8(r[i*8:], bs[i])
 	}

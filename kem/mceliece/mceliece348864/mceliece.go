@@ -286,7 +286,7 @@ func supportGen(s *[sysN]gf, c *[condBytes]byte) {
 		}
 	}
 	for j := 0; j < gfBits; j++ {
-		applyBenes(&L[j], c, 0)
+		applyBenes(&L[j], c)
 	}
 	for i := 0; i < sysN; i++ {
 		s[i] = 0

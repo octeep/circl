@@ -1,4 +1,4 @@
-package mceliece
+package testdata
 
 import (
 	"bufio"
@@ -11,8 +11,8 @@ import (
 	"strings"
 )
 
-func FindTestDataByte(searchKey string) ([]byte, error) {
-	file, err := os.Open("testdata/testdata.txt")
+func FindTestDataByte(searchKey, path string) ([]byte, error) {
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -57,8 +57,8 @@ func FindTestDataByte(searchKey string) ([]byte, error) {
 	}
 }
 
-func FindTestDataU16(searchKey string) ([]uint16, error) {
-	data, err := FindTestDataByte(searchKey)
+func FindTestDataU16(searchKey, path string) ([]uint16, error) {
+	data, err := FindTestDataByte(searchKey, path)
 	if err != nil {
 		return nil, err
 	}
@@ -76,22 +76,22 @@ func FindTestDataU16(searchKey string) ([]uint16, error) {
 	return out, nil
 }
 
-func FindTestDataI16(searchKey string) ([]int16, error) {
-	data, err := FindTestDataU16(searchKey)
+func FindTestDataI16(searchKey, path string) ([]int16, error) {
+	data, err := FindTestDataU16(searchKey, path)
 	if err != nil {
 		return nil, err
 	}
 
 	out := make([]int16, len(data))
-	for i := 0; i < len(data); i++ {
+	for i := 0; i < len(out); i++ {
 		out[i] = int16(data[i])
 	}
 
 	return out, nil
 }
 
-func FindTestDataU32(searchKey string) ([]uint32, error) {
-	data, err := FindTestDataByte(searchKey)
+func FindTestDataU32(searchKey, path string) ([]uint32, error) {
+	data, err := FindTestDataByte(searchKey, path)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func FindTestDataU32(searchKey string) ([]uint32, error) {
 	}
 
 	out := make([]uint32, len(data)/4)
-	for i := 0; i < len(data); i += 4 {
+	for i := 0; i < len(out); i += 4 {
 		out[i] = binary.BigEndian.Uint32(data)
 		data = data[4:]
 	}
@@ -109,8 +109,8 @@ func FindTestDataU32(searchKey string) ([]uint32, error) {
 	return out, nil
 }
 
-func FindTestDataU64(searchKey string) ([]uint64, error) {
-	data, err := FindTestDataByte(searchKey)
+func FindTestDataU64(searchKey, path string) ([]uint64, error) {
+	data, err := FindTestDataByte(searchKey, path)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func FindTestDataU64(searchKey string) ([]uint64, error) {
 	}
 
 	out := make([]uint64, len(data)/8)
-	for i := 0; i < len(data); i += 8 {
+	for i := 0; i < len(out); i++ {
 		out[i] = binary.BigEndian.Uint64(data)
 		data = data[8:]
 	}

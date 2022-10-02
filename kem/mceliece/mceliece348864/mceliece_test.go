@@ -86,6 +86,7 @@ func TestGenerateKeyPair(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(dss, ss) {
+			t.Logf("Error at count %d\n", i)
 			test.ReportError(t, fmt.Sprintf("%X", dss), fmt.Sprintf("%X", ss))
 		}
 		printHex(t, digest, "seed = ", s[:])
