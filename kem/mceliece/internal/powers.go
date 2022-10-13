@@ -1,6 +1,10 @@
-package mceliece6688128
+package internal
 
-var powers = [128][gfBits]uint64{
+import (
+	"github.com/cloudflare/circl/math/gf8192"
+)
+
+var Powers = [128][gf8192.GfBits]uint64{
 	{
 		0x5AA55AA5A55AA55A,
 		0x3CC33CC3C33CC33C,

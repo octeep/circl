@@ -2,6 +2,8 @@
 
 package mceliece6688128
 
+import "github.com/cloudflare/circl/kem/mceliece/internal"
+
 func fft(out [][gfBits]uint64, in [][gfBits]uint64) {
 	radixConversions(in)
 	butterflies(out, in)
@@ -204,7 +206,7 @@ func butterflies(out [][gfBits]uint64, in [][gfBits]uint64) {
 	// adding the part contributed by x^128
 	for i := 0; i < 128; i++ {
 		for b := 0; b < gfBits; b++ {
-			out[i][b] ^= powers[i][b]
+			out[i][b] ^= internal.Powers[i][b]
 		}
 	}
 }

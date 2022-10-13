@@ -10,11 +10,13 @@ import (
 	"github.com/cloudflare/circl/kem/mceliece/internal"
 )
 
+{{ if not .Is8192128 }}
 func storeI(out []byte, in uint64, i int) {
 	for j := 0; j < i; j++ {
 		out[j] = byte((in >> (j * 8)) & 0xFF)
 	}
 }
+{{end}}
 
 func deBitSlicing(out []uint64, in [][gfBits]uint64) {
 	for i := 0; i < (1 << gfBits); i++ {
@@ -49,7 +51,7 @@ func toBitslicing2x(out0 [][gfBits]uint64, out1 [][gfBits]uint64, in []uint64) {
 	}
 }
 
-{{ if .Is6688128 }}
+{{ if or .Is6688128 .Is8192128 }}
 func irrLoad(out [][gfBits]uint64, in []byte) {
 	var (
 		v0 uint64

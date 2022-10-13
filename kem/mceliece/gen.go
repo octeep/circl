@@ -113,7 +113,7 @@ var (
 )
 
 func shouldVec(m Instance) bool {
-	return (m.Is6960119() || m.Is460896() || m.Is6688128()) && !m.IsSemiSystematic()
+	return (m.Is6960119() || m.Is460896() || m.Is6688128() || m.Is8192128()) && !m.IsSemiSystematic()
 }
 
 func main() {
