@@ -75,7 +75,6 @@ func irrLoad(out [][gfBits]uint64, in []byte) {
 	}
 }
 
-
 // nolint:unparam
 // Public key generation. Generate the public key `pk`,
 // permutation `pi` and pivot element `pivots` based on the
