@@ -6,6 +6,8 @@ import (
 	"github.com/cloudflare/circl/kem/mceliece/internal"
 )
 
+const exponent = 64
+
 func storeI(out []byte, in uint64, i int) {
 	for j := 0; j < i; j++ {
 		out[j] = byte((in >> (j * 8)) & 0xFF)
@@ -17,7 +19,7 @@ func deBitSlicing(out []uint64, in [][gfBits]uint64) {
 		out[i] = 0
 	}
 
-	for i := 0; i < 128; i++ {
+	for i := 0; i < exponent; i++ {
 		for j := gfBits - 1; j >= 0; j-- {
 			for r := 0; r < 64; r++ {
 				out[i*64+r] <<= 1
@@ -28,7 +30,7 @@ func deBitSlicing(out []uint64, in [][gfBits]uint64) {
 }
 
 func toBitslicing2x(out0 [][gfBits]uint64, out1 [][gfBits]uint64, in []uint64) {
-	for i := 0; i < 128; i++ {
+	for i := 0; i < exponent; i++ {
 		for j := gfBits - 1; j >= 0; j-- {
 			for r := 63; r >= 0; r-- {
 				out1[i][j] <<= 1
@@ -45,7 +47,7 @@ func toBitslicing2x(out0 [][gfBits]uint64, out1 [][gfBits]uint64, in []uint64) {
 	}
 }
 
-func irrLoad(out [gfBits]uint64, in []byte) {
+func irrLoad(out []uint64, in []byte) {
 	irr := [sysT + 1]uint16{}
 
 	for i := 0; i < sysT; i++ {
@@ -79,29 +81,30 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 		nblocksI = (pkNRows + 63) / 64
 
 		blockIdx = nblocksI
-		tail     = pkNRows % 64
 	)
 	mat := [pkNRows][nblocksH]uint64{}
 	ops := [pkNRows][nblocksI]uint64{}
 	var mask uint64
-	irrInt := [2][gfBits]uint64{}
-	consts := [128][gfBits]uint64{}
-	eval := [128][gfBits]uint64{}
-	prod := [128][gfBits]uint64{}
+
+	irrInt := [gfBits]uint64{}
+
+	consts := [exponent][gfBits]uint64{}
+	eval := [exponent][gfBits]uint64{}
+	prod := [exponent][gfBits]uint64{}
 	tmp := [gfBits]uint64{}
 	list := [1 << gfBits]uint64{}
 
-	oneRow := [128]uint64{}
+	oneRow := [exponent]uint64{}
 
 	// compute the inverses
 	irrLoad(irrInt[:], irr)
 	fft(eval[:], irrInt[:])
 	vecCopy(prod[0][:], eval[0][:])
-	for i := 1; i < 128; i++ {
+	for i := 1; i < exponent; i++ {
 		vecMul(prod[i][:], prod[i-1][:], eval[i][:])
 	}
-	vecInv(tmp[:], prod[127][:])
-	for i := 126; i >= 0; i-- {
+	vecInv(tmp[:], prod[exponent-1][:])
+	for i := exponent - 2; i >= 0; i-- {
 		vecMul(prod[i+1][:], prod[i][:], tmp[:])
 		vecMul(tmp[:], tmp[:], eval[i+1][:])
 	}
@@ -153,11 +156,6 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 	for i := 0; i < pkNRows; i++ {
 		ops[i][i/64] = 1
 		ops[i][i/64] <<= (i % 64)
-	}
-
-	column := [pkNRows]uint64{}
-	for i := 0; i < pkNRows; i++ {
-		column[i] = mat[i][blockIdx]
 	}
 
 	for row := 0; row < pkNRows; row++ {
@@ -223,10 +221,6 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 
 	pkp := pk[:]
 
-	for i := 0; i < pkNRows; i++ {
-		mat[i][blockIdx] = column[i]
-	}
-
 	for row := 0; row < pkNRows; row++ {
 		for k := 0; k < nblocksH; k++ {
 			oneRow[k] = 0
@@ -245,13 +239,9 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 		var k int
 		for k = blockIdx; k < nblocksH-1; k++ {
 
-			oneRow[k] = (oneRow[k] >> tail) | (oneRow[k+1] << (64 - tail))
-
 			store8(pkp, oneRow[k])
 			pkp = pkp[8:]
 		}
-
-		oneRow[k] >>= tail
 
 		storeI(pkp, oneRow[k], pkRowBytes%8)
 

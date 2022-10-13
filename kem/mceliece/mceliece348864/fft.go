@@ -23,7 +23,7 @@ func radixConversions(in []uint64) {
 func butterflies(out [][gfBits]uint64, in []uint64) {
 	tmp := [gfBits]uint64{}
 	var constsPtr int
-	// boradcast
+	// broadcast
 	for j := 0; j < 64; j++ {
 		for i := 0; i < gfBits; i++ {
 			out[j][i] = (in[i] >> internal.ButterfliesReversal4096[j]) & 1

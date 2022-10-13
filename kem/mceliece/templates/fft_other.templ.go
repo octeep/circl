@@ -211,7 +211,7 @@ func butterflies(out [][gfBits]uint64, in [][gfBits]uint64) {
 	// adding the part contributed by x^128
 	for i := 0; i < 128; i++ {
 		for b := 0; b < gfBits; b++ {
-			out[i][b] ^= internal.Powers[i][b]
+			out[i][b] ^= internal.Powers8192[i][b]
 		}
 	}
 	{{end}}
