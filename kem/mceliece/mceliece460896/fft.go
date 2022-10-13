@@ -1,4 +1,4 @@
-// Code generated from fft.templ.go. DO NOT EDIT.
+// Code generated from fft_other.templ.go. DO NOT EDIT.
 
 package mceliece460896
 

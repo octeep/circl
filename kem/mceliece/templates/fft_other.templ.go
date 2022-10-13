@@ -2,7 +2,7 @@
 // The previous line (and this one up to the warning below) is removed by the
 // template generator.
 
-// Code generated from fft.templ.go. DO NOT EDIT.
+// Code generated from fft_other.templ.go. DO NOT EDIT.
 
 package {{.Pkg}}
 

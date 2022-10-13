@@ -1,4 +1,4 @@
-// Code generated from fft.templ.go. DO NOT EDIT.
+// Code generated from fft_other.templ.go. DO NOT EDIT.
 
 package mceliece6688128
 
@@ -206,7 +206,7 @@ func butterflies(out [][gfBits]uint64, in [][gfBits]uint64) {
 	// adding the part contributed by x^128
 	for i := 0; i < 128; i++ {
 		for b := 0; b < gfBits; b++ {
-			out[i][b] ^= internal.Powers[i][b]
+			out[i][b] ^= internal.Powers8192[i][b]
 		}
 	}
 }

@@ -76,8 +76,11 @@ func irrLoad(out [][gfBits]uint64, in []byte) {
 	}
 }
 {{else}}
+{{ if .Is348864 }}
+func irrLoad(out [gfBits]uint64, in []byte) {
+{{else}}
 func irrLoad(out [][gfBits]uint64, in []byte) {
-	v := [2]uint64{}
+{{end}}
 	irr := [sysT + 1]uint16{}
 
 	for i := 0; i < sysT; i++ {
@@ -85,7 +88,19 @@ func irrLoad(out [][gfBits]uint64, in []byte) {
 	}
 
 	irr[sysT] = 1
+	{{ if .Is348864 }}
+	for i := 0; i < gfBits; i++ {
+		out[i] = 0;
+	}
 
+	for i := sysT; i >= 0; i-- {
+		for j := 0; j < gfBits; j++ {
+			out[j] <<= 1;
+			out[j] |= uint64(irr[i] >> j) & 1;
+		}
+	}
+	{{ else }}
+	v := [2]uint64{}
 	for i := 0; i < gfBits; i++ {
 		v[0] = 0
 		v[1] = 0
@@ -102,6 +117,7 @@ func irrLoad(out [][gfBits]uint64, in []byte) {
 		out[0][i] = v[0]
 		out[1][i] = v[1]
 	}
+	{{ end }}
 }
 {{end}}
 
