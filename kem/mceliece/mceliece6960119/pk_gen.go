@@ -8,7 +8,7 @@ import (
 
 func storeI(out []byte, in uint64, i int) {
 	for j := 0; j < i; j++ {
-		out[j] = (in >> (j * 8)) & 0xFF
+		out[j] = byte((in >> (j * 8)) & 0xFF)
 	}
 }
 
@@ -61,11 +61,11 @@ func irrLoad(out [][gfBits]uint64, in []byte) {
 
 		for j := 63; j >= 0; j-- {
 			v[0] <<= 1
-			v[0] |= (irr[j] >> i) & 1
+			v[0] |= uint64(irr[j]>>i) & 1
 		}
 		for j := sysT; j >= 64; j-- {
 			v[1] <<= 1
-			v[1] |= (irr[j] >> i) & 1
+			v[1] |= uint64(irr[j]>>i) & 1
 		}
 
 		out[0][i] = v[0]
