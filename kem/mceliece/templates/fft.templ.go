@@ -1,6 +1,10 @@
+// +build ignore
+// The previous line (and this one up to the warning below) is removed by the
+// template generator.
+
 // Code generated from fft.templ.go. DO NOT EDIT.
 
-package mceliece6960119
+package {{.Pkg}}
 
 func fft(out [][gfBits]uint64, in [][gfBits]uint64) {
 	radixConversions(in)

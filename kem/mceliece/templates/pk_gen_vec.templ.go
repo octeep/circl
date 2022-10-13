@@ -1,6 +1,10 @@
+// +build ignore
+// The previous line (and this one up to the warning below) is removed by the
+// template generator.
+
 // Code generated from pk_gen_vec.templ.go. DO NOT EDIT.
 
-package mceliece460896
+package {{.Pkg}}
 
 import (
 	"github.com/cloudflare/circl/kem/mceliece/internal"
@@ -252,6 +256,10 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 
 		oneRow[k] >>= tail
 		storeI(pkp, oneRow[k], pkRowBytes%8)
+
+		{{if .Is6960119}}
+		pkp[(pkRowBytes%8)-1] &= (1 << (pkNCols % 8)) - 1 // removing redundant bits
+		{{end}}
 
 		pkp = pkp[pkRowBytes%8:]
 	}

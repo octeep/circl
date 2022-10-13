@@ -1,6 +1,6 @@
 // Code generated from fft.templ.go. DO NOT EDIT.
 
-package mceliece6960119
+package mceliece460896
 
 func fft(out [][gfBits]uint64, in [][gfBits]uint64) {
 	radixConversions(in)

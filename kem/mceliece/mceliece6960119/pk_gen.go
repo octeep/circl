@@ -1,4 +1,4 @@
-// Code generated from pk_gen.templ.go. DO NOT EDIT.
+// Code generated from pk_gen_vec.templ.go. DO NOT EDIT.
 
 package mceliece6960119
 

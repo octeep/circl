@@ -112,12 +112,19 @@ var (
 	TemplateWarning = "// Code generated from"
 )
 
+func shouldVec(m Instance) bool {
+	return (m.Is6960119() || m.Is460896()) && !m.IsSemiSystematic()
+}
+
 func main() {
 	generateTemplateFilesIf("templates/benes_348864.templ.go", "benes", func(m Instance) bool { return m.Is348864() })
 	generateTemplateFilesIf("templates/benes_other.templ.go", "benes", func(m Instance) bool { return !m.Is348864() })
+	generateTemplateFilesIf("templates/vec_other.templ.go", "vec", func(m Instance) bool { return !m.Is348864() })
 	generateTemplateFilesIf("templates/operations_6960119.templ.go", "operations", func(m Instance) bool { return m.Is6960119() })
 	generateTemplateFiles("templates/mceliece.templ.go", "mceliece")
 	generateTemplateFiles("templates/pk_gen.templ.go", "pk_gen")
+	generateTemplateFilesIf("templates/pk_gen_vec.templ.go", "pk_gen", shouldVec)
+	generateTemplateFilesIf("templates/fft.templ.go", "fft", shouldVec)
 }
 
 func generateTemplateFiles(templatePath, outputName string) {

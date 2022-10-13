@@ -1,6 +1,6 @@
 // Code generated from vec_other.templ.go. DO NOT EDIT.
 
-package mceliece6960119
+package mceliece8192128
 
 func vecMul(h, f, g []uint64) {
 	buf := [2*gfBits - 1]uint64{}

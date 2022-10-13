@@ -1,6 +1,10 @@
+// +build ignore
+// The previous line (and this one up to the warning below) is removed by the
+// template generator.
+
 // Code generated from vec_other.templ.go. DO NOT EDIT.
 
-package mceliece6960119
+package {{.Pkg}}
 
 func vecMul(h, f, g []uint64) {
 	buf := [2*gfBits - 1]uint64{}
