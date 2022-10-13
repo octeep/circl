@@ -83,7 +83,7 @@ func irrLoad(out [][gfBits]uint64, in []byte) {
 func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32, pi *[1 << gfBits]int16, pivots *uint64) bool {
 	const (
 		nblocksH = (sysN + 63) / 64
-		nblocksI = (pkNRows + 64) / 64
+		nblocksI = (pkNRows + 63) / 64
 
 		blockIdx = nblocksI - 1
 		tail     = pkNRows % 64

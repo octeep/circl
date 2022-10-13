@@ -3,8 +3,6 @@
 package mceliece6688128
 
 import (
-	"fmt"
-
 	"github.com/cloudflare/circl/kem/mceliece/internal"
 )
 
@@ -71,16 +69,6 @@ func irrLoad(out [][gfBits]uint64, in []byte) {
 	}
 }
 
-func hash(arr [128][gfBits]uint64, x, y int) {
-	h := uint64(0)
-	for i := 0; i < x; i++ {
-		for j := 0; j < y; j++ {
-			h += arr[i][j]
-		}
-	}
-	fmt.Printf("hash: %d\n", h)
-}
-
 // nolint:unparam
 // Public key generation. Generate the public key `pk`,
 // permutation `pi` and pivot element `pivots` based on the
@@ -91,7 +79,7 @@ func hash(arr [128][gfBits]uint64, x, y int) {
 func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32, pi *[1 << gfBits]int16, pivots *uint64) bool {
 	const (
 		nblocksH = (sysN + 63) / 64
-		nblocksI = (pkNRows + 64) / 64
+		nblocksI = (pkNRows + 63) / 64
 
 		blockIdx = nblocksI
 	)
@@ -122,9 +110,6 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 
 	// fill matrix
 	deBitSlicing(list[:], prod[:])
-
-	hash(prod, 128, gfBits)
-
 	for i := uint64(0); i < (1 << gfBits); i++ {
 		list[i] <<= gfBits
 		list[i] |= i
@@ -134,21 +119,14 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 
 	for i := 1; i < (1 << gfBits); i++ {
 		if (list[i-1] >> 31) == (list[i] >> 31) {
-			fmt.Println("failed 0")
 			return false
 		}
 	}
 	toBitslicing2x(consts[:], prod[:], list[:])
-	fmt.Printf("consts ")
-	hash(consts, 128, gfBits)
-	fmt.Printf("prod ")
-	hash(prod, 128, gfBits)
-	h := uint64(0)
+
 	for i := 0; i < (1 << gfBits); i++ {
 		pi[i] = int16(list[i] & gfMask)
-		h = h*31 + uint64(pi[i])
 	}
-	fmt.Printf("list: %d\n", h)
 
 	for j := 0; j < nblocksI; j++ {
 		for k := 0; k < gfBits; k++ {
@@ -159,16 +137,11 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 	for i := 1; i < sysT; i++ {
 		for j := 0; j < nblocksI; j++ {
 			vecMul(prod[j][:], prod[j][:], consts[j][:])
-			fmt.Printf("prod %d ", j)
-			hash(prod, 128, gfBits)
 			for k := 0; k < gfBits; k++ {
 				mat[i*gfBits+k][j] = prod[j][k]
 			}
 		}
 	}
-
-	fmt.Println("goofy")
-	hash(prod, 128, gfBits)
 
 	// gaussian elimination to obtain an upper triangular matrix
 	// and keep track of the operations in ops
@@ -198,7 +171,6 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 		}
 		// return if not systematic
 		if ((mat[row][i] >> j) & 1) == 0 {
-			fmt.Println("failed 1")
 			return false
 		}
 
@@ -234,9 +206,6 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 		}
 	}
 
-	fmt.Println("woo")
-	hash(prod, 128, gfBits)
-
 	for i := 1; i < sysT; i++ {
 		for j := nblocksI; j < nblocksH; j++ {
 			vecMul(prod[j][:], prod[j][:], consts[j][:])
@@ -245,8 +214,6 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 			}
 		}
 	}
-
-	hash(prod, 128, gfBits)
 
 	pkp := pk[:]
 	for row := 0; row < pkNRows; row++ {

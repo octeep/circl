@@ -49,6 +49,31 @@ func toBitslicing2x(out0 [][gfBits]uint64, out1 [][gfBits]uint64, in []uint64) {
 	}
 }
 
+{{ if .Is6688128 }}
+func irrLoad(out [][gfBits]uint64, in []byte) {
+	var (
+		v0 uint64
+		v1 uint64
+	)
+	irr := [sysT]uint16{}
+
+	for i := 0; i < sysT; i++ {
+		irr[i] = loadGf(in[i*2:])
+	}
+
+	for i := 0; i < gfBits; i++ {
+		for j := 63; j >= 0; j-- {
+			v0 <<= 1
+			v1 <<= 1
+			v0 |= uint64(irr[j]>>i) & 1
+			v1 |= uint64(irr[j+64]>>i) & 1
+		}
+
+		out[0][i] = v0
+		out[1][i] = v1
+	}
+}
+{{else}}
 func irrLoad(out [][gfBits]uint64, in []byte) {
 	v := [2]uint64{}
 	irr := [sysT + 1]uint16{}
@@ -76,6 +101,7 @@ func irrLoad(out [][gfBits]uint64, in []byte) {
 		out[1][i] = v[1]
 	}
 }
+{{end}}
 
 // nolint:unparam
 // Public key generation. Generate the public key `pk`,
