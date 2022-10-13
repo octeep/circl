@@ -87,6 +87,7 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 	prod := [128][gfBits]uint64{}
 	tmp := [gfBits]uint64{}
 	list := [1 << gfBits]uint64{}
+
 	oneRow := [pkNCols / 64]uint64{}
 
 	// compute the inverses
@@ -140,6 +141,7 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 
 	// gaussian elimination to obtain an upper triangular matrix
 	// and keep track of the operations in ops
+
 	for i := 0; i < pkNRows/64; i++ {
 		for j := 0; j < 64; j++ {
 			row := i*64 + j
@@ -189,6 +191,7 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 	}
 
 	// computing the lineaer map required to obatin the systematic form
+
 	for i := pkNRows/64 - 1; i >= 0; i-- {
 		for j := 63; j >= 0; j-- {
 			row := i*64 + j

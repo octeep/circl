@@ -132,7 +132,11 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 	prod := [128][gfBits]uint64{}
 	tmp := [gfBits]uint64{}
 	list := [1 << gfBits]uint64{}
+	{{ if .Is8192128 }}
+	oneRow := [pkNCols / 64]uint64{}
+	{{ else }}
 	oneRow := [128]uint64{}
+	{{ end }}
 
 	// compute the inverses
 	irrLoad(irrInt[:], irr)
@@ -185,6 +189,23 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 
 	// gaussian elimination to obtain an upper triangular matrix
 	// and keep track of the operations in ops
+	{{ if .Is8192128 }}
+	for i := 0; i < pkNRows/64; i++ {
+		for j := 0; j < 64; j++ {
+			row := i*64 + j
+			for c := 0; c < pkNRows/64; c++ {
+				ops[row][c] = 0
+			}
+		}
+	}
+	for i := 0; i < pkNRows/64; i++ {
+		for j := 0; j < 64; j++ {
+			row := i*64 + j
+			ops[row][i] = 1
+			ops[row][i] <<= j
+		}
+	}
+	{{ else }}
 	for i := 0; i < pkNRows; i++ {
 		for j := 0; j < nblocksI; j++ {
 			ops[i][j] = 0
@@ -200,40 +221,68 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 	for i := 0; i < pkNRows; i++ {
 		column[i] = mat[i][blockIdx]
 	}
-	{{end}}
+	{{ end }}
+	{{ end }}
 
-	for row := 0; row < pkNRows; row++ {
-		i := row >> 6
-		j := row & 63
 
-		for k := row + 1; k < pkNRows; k++ {
-			mask = mat[row][i] >> j
-			mask &= 1
-			mask -= 1
+	{{ if .Is8192128 }}
+	for i := 0; i < pkNRows/64; i++ {
+		for j := 0; j < 64; j++ {
+			row := i*64 + j
+			{{ else }}
+			for row := 0; row < pkNRows; row++ {
+				i := row >> 6
+				j := row & 63
+				{{ end }}
 
-			for c := 0; c < nblocksI; c++ {
-				mat[row][c] ^= mat[k][c] & mask
-				ops[row][c] ^= ops[k][c] & mask
+				for k := row + 1; k < pkNRows; k++ {
+					mask = mat[row][i] >> j
+					mask &= 1
+					mask -= 1
+
+					for c := 0; c < nblocksI; c++ {
+						mat[row][c] ^= mat[k][c] & mask
+						ops[row][c] ^= ops[k][c] & mask
+					}
+				}
+				// return if not systematic
+				if ((mat[row][i] >> j) & 1) == 0 {
+					return false
+				}
+
+				for k := row + 1; k < pkNRows; k++ {
+					mask = mat[k][i] >> j
+					mask &= 1
+					mask = -mask
+
+					for c := 0; c < nblocksI; c++ {
+						mat[k][c] ^= mat[row][c] & mask
+						ops[k][c] ^= ops[row][c] & mask
+					}
+				}
 			}
+		{{ if .Is8192128 }}
 		}
-		// return if not systematic
-		if ((mat[row][i] >> j) & 1) == 0 {
-			return false
-		}
+		{{ end }}
 
-		for k := row + 1; k < pkNRows; k++ {
-			mask = mat[k][i] >> j
-			mask &= 1
-			mask = -mask
-
-			for c := 0; c < nblocksI; c++ {
-				mat[k][c] ^= mat[row][c] & mask
-				ops[k][c] ^= ops[row][c] & mask
-			}
-		}
-	}
 
 	// computing the lineaer map required to obatin the systematic form
+	{{ if .Is8192128 }}
+		for i := pkNRows/64 - 1; i >= 0; i-- {
+			for j := 63; j >= 0; j-- {
+				row := i*64 + j
+				for k := 0; k < row; k++ {
+					mask = mat[k][i] >> j
+					mask &= 1
+					mask = -mask
+
+					for c := 0; c < pkNRows/64; c++ {
+						ops[k][c] ^= ops[row][c] & mask
+					}
+				}
+			}
+		}
+	{{else}}
 	for row := pkNRows - 1; row >= 0; row-- {
 		for k := 0; k < row; k++ {
 			mask = mat[k][row/64] >> (row & 63)
@@ -245,6 +294,7 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 			}
 		}
 	}
+	{{end}}
 
 	// apply the linear map to the non-systematic part
 	for j := nblocksI; j < nblocksH; j++ {
@@ -262,13 +312,42 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 		}
 	}
 
-	{{ if not .Is6688128 }}
-	for i := 0; i < pkNRows; i++ {
-		mat[i][blockIdx] = column[i]
-	}
-	{{end}}
-
 	pkp := pk[:]
+
+	{{ if .Is8192128 }}
+		for i := 0; i < pkNRows/64; i++ {
+			for j := 0; j < 64; j++ {
+				row := i*64 + j
+
+				for k := 0; k < pkNCols/64; k++ {
+					oneRow[k] = 0
+				}
+
+				for c := 0; c < pkNRows/64; c++ {
+					for d := 0; d < 64; d++ {
+						mask = ops[row][c] >> d
+						mask &= 1
+						mask = -mask
+
+						for k := 0; k < pkNCols/64; k++ {
+							oneRow[k] ^= mat[c*64+d][k+pkNRows/64] & mask
+						}
+					}
+				}
+
+				for k := 0; k < pkNCols/64; k++ {
+					store8(pkp, oneRow[k])
+					pkp = pkp[8:]
+				}
+			}
+		}
+
+	{{ else }}
+		{{ if not .Is6688128 }}
+		for i := 0; i < pkNRows; i++ {
+			mat[i][blockIdx] = column[i]
+		}
+		{{end}}
 	for row := 0; row < pkNRows; row++ {
 		for k := 0; k < nblocksH; k++ {
 			oneRow[k] = 0
@@ -304,5 +383,6 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 
 		pkp = pkp[pkRowBytes%8:]
 	}
+	{{ end }}
 	return true
 }
