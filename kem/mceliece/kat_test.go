@@ -9,8 +9,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cloudflare/circl/internal/nist"
 	"github.com/cloudflare/circl/internal/test"
+
+	"github.com/cloudflare/circl/internal/nist"
 	"github.com/cloudflare/circl/kem/schemes"
 )
 

@@ -87,10 +87,14 @@ func irrLoad(out [][gfBits]uint64, in []byte) {
 func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32, pi *[1 << gfBits]int16, pivots *uint64) bool {
 	const (
 		nblocksH = (sysN + 63) / 64
-		nblocksI = (pkNRows + 64) / 64
+		nblocksI = (pkNRows + 63) / 64
+		{{ if .Is6688128 }}
+		blockIdx = nblocksI
+		{{ else }}
 		blockIdx = nblocksI - 1
+		tail = pkNRows % 64
+		{{ end }}
 	)
-	tail := pkNRows % 64
 	mat := [pkNRows][nblocksH]uint64{}
 	ops := [pkNRows][nblocksI]uint64{}
 	var mask uint64
@@ -162,10 +166,13 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 		ops[i][i/64] = 1
 		ops[i][i/64] <<= (i % 64)
 	}
+
+	{{ if not .Is6688128 }}
 	column := [pkNRows]uint64{}
 	for i := 0; i < pkNRows; i++ {
 		column[i] = mat[i][blockIdx]
 	}
+	{{end}}
 
 	for row := 0; row < pkNRows; row++ {
 		i := row >> 6
@@ -227,9 +234,11 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 		}
 	}
 
+	{{ if not .Is6688128 }}
 	for i := 0; i < pkNRows; i++ {
 		mat[i][blockIdx] = column[i]
 	}
+	{{end}}
 
 	pkp := pk[:]
 	for row := 0; row < pkNRows; row++ {
@@ -249,12 +258,16 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 
 		var k int
 		for k = blockIdx; k < nblocksH-1; k++ {
+			{{ if not .Is6688128 }}
 			oneRow[k] = (oneRow[k] >> tail) | (oneRow[k+1] << (64 - tail))
+			{{end}}
 			store8(pkp, oneRow[k])
 			pkp = pkp[8:]
 		}
 
+		{{ if not .Is6688128 }}
 		oneRow[k] >>= tail
+		{{end}}
 		storeI(pkp, oneRow[k], pkRowBytes%8)
 
 		{{if .Is6960119}}

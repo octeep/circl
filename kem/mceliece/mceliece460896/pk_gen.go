@@ -84,9 +84,10 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 	const (
 		nblocksH = (sysN + 63) / 64
 		nblocksI = (pkNRows + 64) / 64
+
 		blockIdx = nblocksI - 1
+		tail     = pkNRows % 64
 	)
-	tail := pkNRows % 64
 	mat := [pkNRows][nblocksH]uint64{}
 	ops := [pkNRows][nblocksI]uint64{}
 	var mask uint64
@@ -158,6 +159,7 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 		ops[i][i/64] = 1
 		ops[i][i/64] <<= (i % 64)
 	}
+
 	column := [pkNRows]uint64{}
 	for i := 0; i < pkNRows; i++ {
 		column[i] = mat[i][blockIdx]
@@ -245,12 +247,15 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 
 		var k int
 		for k = blockIdx; k < nblocksH-1; k++ {
+
 			oneRow[k] = (oneRow[k] >> tail) | (oneRow[k+1] << (64 - tail))
+
 			store8(pkp, oneRow[k])
 			pkp = pkp[8:]
 		}
 
 		oneRow[k] >>= tail
+
 		storeI(pkp, oneRow[k], pkRowBytes%8)
 
 		pkp = pkp[pkRowBytes%8:]

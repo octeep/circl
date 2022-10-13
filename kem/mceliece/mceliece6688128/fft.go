@@ -1,10 +1,6 @@
-// +build ignore
-// The previous line (and this one up to the warning below) is removed by the
-// template generator.
-
 // Code generated from fft.templ.go. DO NOT EDIT.
 
-package {{.Pkg}}
+package mceliece6688128
 
 func fft(out [][gfBits]uint64, in [][gfBits]uint64) {
 	radixConversions(in)
@@ -205,14 +201,12 @@ func butterflies(out [][gfBits]uint64, in [][gfBits]uint64) {
 		constsPtr += 1 << i
 	}
 
-	{{ if .Is6688128 }}
 	// adding the part contributed by x^128
 	for i := 0; i < 128; i++ {
 		for b := 0; b < gfBits; b++ {
 			out[i][b] ^= powers[i][b]
 		}
 	}
-	{{end}}
 }
 
 var butterfliesReversal = [128]byte{
