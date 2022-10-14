@@ -301,9 +301,7 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 
 		storeI(pkp, mat[i][nblocksI-1]>>tail, (64-tail)/8)
 		pkp = pkp[(64-tail)/8:]
-
-		var j int
-		for j = nblocksI; j < nblocksH; j++ {
+		for j := nblocksI; j < nblocksH; j++ {
 			store8(pkp, mat[i][j])
 			pkp = pkp[8:]
 		}

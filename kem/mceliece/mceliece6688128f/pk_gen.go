@@ -300,7 +300,6 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 			store8(pkp, mat[i][j])
 			pkp = pkp[8:]
 		}
-
 		storeI(pkp, mat[i][j], pkRowBytes%8)
 		pkp = pkp[pkRowBytes%8:]
 

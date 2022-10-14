@@ -162,16 +162,9 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 
 	// extract the 32x64 matrix
 	{{if .Is6960119}}
-	tail := row % 8
-	tmp := [9]byte{}
+	tail := row % 64
 	for i := 0; i < 32; i++ {
-		for j := 0; j < 9; j++ {
-			tmp[j] = mat[row+i][blockIdx+j]
-		}
-		for j := 0; j < 8; j++ {
-			tmp[j] = (tmp[j] >> tail) | (tmp[j+1] << (8 - tail))
-		}
-		buf[i] = load8(tmp[:])
+		buf[i] = (mat[row+i][blockIdx+0] >> tail) | (mat[row+i][blockIdx+1] << (64-tail))
 	}
 	{{else}}
 	for i := 0; i < 32; i++ {
@@ -225,30 +218,8 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 	// moving columns of mat according to the column indices of pivots
 	for i := 0; i < pkNRows; i++ {
 		{{if .Is6960119}}
-		for k := 0; k < 9; k++ {
-			tmp[k] = mat[i][blockIdx+k]
-		}
-		for k := 0; k < 8; k++ {
-			tmp[k] = (tmp[k] >> tail) | (tmp[k+1] << (8 - tail))
-		}
-		t := load8(tmp[:])
-		for j := 0; j < 32; j++ {
-			d := t >> j
-			d ^= t >> ctzList[j]
-			d &= 1
-			t ^= d << ctzList[j]
-			t ^= d << j
-		}
-		store8(tmp[:], t)
-
-		mat[i][blockIdx+8] = (mat[i][blockIdx+8] >> tail << tail) | (tmp[7] >> (8 - tail))
-		mat[i][blockIdx+0] = (tmp[0] << tail) | (mat[i][blockIdx] << (8 - tail) >> (8 - tail))
-
-		for k := 7; k >= 1; k-- {
-			mat[i][blockIdx+k] = (tmp[k] << tail) | (tmp[k-1] >> (8 - tail))
-		}
-		{{else}}
-		{{if .Is6688128}}
+		t := (mat[i][blockIdx+0] >> tail) | (mat[i][blockIdx+1] << (64-tail))
+		{{else if .Is6688128}}
 		t := (mat[i][blockIdx+0] >> 32) | (mat[i][blockIdx+1] << 32)
 		{{else}}
 		t := mat[i][blockIdx]
@@ -266,9 +237,11 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 		{{if .Is6688128}}
 		mat[i][blockIdx+0] = (mat[i][blockIdx+0] << 32 >> 32) | (t << 32)
 		mat[i][blockIdx+1] = (mat[i][blockIdx+1] >> 32 << 32) | (t >> 32)
+		{{else if .Is6960119}}
+		mat[i][blockIdx+0] = (mat[i][blockIdx+0] & ((0xffffffffffffffff) >> (64-tail))) | (t << tail);
+		mat[i][blockIdx+1] = (mat[i][blockIdx+1] & ((0xffffffffffffffff) << tail)) | (t >> (64-tail));
 		{{else}}
 		mat[i][blockIdx] = t
-		{{end}}
 		{{end}}
 	}
 
@@ -480,18 +453,32 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 	pkp := pk[:]
 	{{if .IsSemiSystematic}}
 	for i := 0; i < pkNRows; i++ {
-		{{ if not .Is6688128 }}
-		storeI(pkp, mat[i][ nblocksI-1 ] >> tail, (64-tail)/8)
+		{{ if .Is460896 }}
+		storeI(pkp, mat[i][nblocksI-1]>>tail, (64-tail)/8)
 		pkp = pkp[(64-tail)/8:]
-		{{ end }}
-		var j int
-		for j = nblocksI; j < nblocksH {{ if .Is6688128 }} - 1 {{end}}; j++ {
+		for j := nblocksI; j < nblocksH; j++ {
 			store8(pkp, mat[i][j])
 			pkp = pkp[8:]
 		}
-
-		{{ if .Is6688128 }}
+		{{ else if .Is6688128 }}
+		var j int
+		for j = nblocksI; j < nblocksH-1; j++ {
+			store8(pkp, mat[i][j])
+			pkp = pkp[8:]
+		}
 		storeI(pkp, mat[i][j], pkRowBytes%8)
+		pkp = pkp[pkRowBytes%8:]
+		{{ else if .Is6960119 }}
+		row := i
+		var k int
+		for k = blockIdx; k < nblocksH-1; k++ {
+			mat[row][k] = (mat[row][k] >> tail) | (mat[row][k+1] << (64-tail))
+			store8(pkp, mat[row][k])
+			pkp = pkp[8:]
+		}
+		mat[row][k] >>= tail
+		storeI(pkp, mat[row][k], pkRowBytes%8)
+		pkp[(pkRowBytes%8)-1] &= (1 << (pkNCols % 8)) - 1 // removing redundant bits
 		pkp = pkp[pkRowBytes%8:]
 		{{ end }}
 	}
