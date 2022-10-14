@@ -56,7 +56,7 @@ func (m Instance) Is8192128() bool {
 }
 
 func IsSystematic(m Instance) bool {
-	return !m.IsSemiSystematic()
+	return !m.IsSemiSystematic() || m.Is460896()
 }
 
 var (
