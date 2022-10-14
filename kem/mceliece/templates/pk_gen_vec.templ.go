@@ -175,7 +175,11 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 	}
 	{{else}}
 	for i := 0; i < 32; i++ {
+		{{if .Is6688128}}
+		buf[i] = (mat[row+i][blockIdx+0] >> 32) | (mat[row+i][blockIdx+1] << 32)
+		{{else}}
 		buf[i] = mat[row+i][blockIdx]
+		{{end}}
 	}
 	{{end}}
 
@@ -244,7 +248,11 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 			mat[i][blockIdx+k] = (tmp[k] << tail) | (tmp[k-1] >> (8 - tail))
 		}
 		{{else}}
+		{{if .Is6688128}}
+		t := (mat[i][blockIdx+0] >> 32) | (mat[i][blockIdx+1] << 32)
+		{{else}}
 		t := mat[i][blockIdx]
+		{{end}}
 
 		for j := 0; j < 32; j++ {
 			d := t >> j
@@ -255,7 +263,12 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 			t ^= d << j
 		}
 
+		{{if .Is6688128}}
+		mat[i][blockIdx+0] = (mat[i][blockIdx+0] << 32 >> 32) | (t << 32)
+		mat[i][blockIdx+1] = (mat[i][blockIdx+1] >> 32 << 32) | (t >> 32)
+		{{else}}
 		mat[i][blockIdx] = t
+		{{end}}
 		{{end}}
 	}
 
@@ -467,13 +480,20 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 	pkp := pk[:]
 	{{if .IsSemiSystematic}}
 	for i := 0; i < pkNRows; i++ {
+		{{ if not .Is6688128 }}
 		storeI(pkp, mat[i][ nblocksI-1 ] >> tail, (64-tail)/8)
 		pkp = pkp[(64-tail)/8:]
-
-		for j := nblocksI; j < nblocksH; j++ {
+		{{ end }}
+		var j int
+		for j = nblocksI; j < nblocksH {{ if .Is6688128 }} - 1 {{end}}; j++ {
 			store8(pkp, mat[i][j])
 			pkp = pkp[8:]
 		}
+
+		{{ if .Is6688128 }}
+		storeI(pkp, mat[i][j], pkRowBytes%8)
+		pkp = pkp[pkRowBytes%8:]
+		{{ end }}
 	}
 	{{else}}
 	// computing the lineaer map required to obatin the systematic form
