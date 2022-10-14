@@ -168,7 +168,7 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 	}
 	{{else}}
 	for i := 0; i < 32; i++ {
-		{{if or .Is8192128 .Is6688128}}
+		{{if or .Is8192128 .Is6688128 .Is348864}}
 		buf[i] = (mat[row+i][blockIdx+0] >> 32) | (mat[row+i][blockIdx+1] << 32)
 		{{else}}
 		buf[i] = mat[row+i][blockIdx]
@@ -209,7 +209,7 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 	for j := 0; j < 32; j++ {
 		for k := j + 1; k < 64; k++ {
 			d := uint64(pi[row+j] ^ pi[row+k])
-			d &= sameMask64(uint16(k), uint16(ctzList[j]))
+			d &= sameMask64(uint16(k), uint16(ctzList[j])) {{ if .Is348864 }} & 0xFFFF {{ end }}
 			pi[row+j] ^= int16(d)
 			pi[row+k] ^= int16(d)
 		}
@@ -219,7 +219,7 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 	for i := 0; i < pkNRows; i++ {
 		{{if .Is6960119}}
 		t := (mat[i][blockIdx+0] >> tail) | (mat[i][blockIdx+1] << (64-tail))
-		{{else if or .Is8192128 .Is6688128}}
+		{{else if or .Is8192128 .Is6688128 .Is348864}}
 		t := (mat[i][blockIdx+0] >> 32) | (mat[i][blockIdx+1] << 32)
 		{{else}}
 		t := mat[i][blockIdx]
@@ -234,7 +234,7 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 			t ^= d << j
 		}
 
-		{{if or .Is8192128 .Is6688128}}
+		{{if or .Is8192128 .Is6688128 .Is348864}}
 		mat[i][blockIdx+0] = (mat[i][blockIdx+0] << 32 >> 32) | (t << 32)
 		mat[i][blockIdx+1] = (mat[i][blockIdx+1] >> 32 << 32) | (t >> 32)
 		{{else if .Is6960119}}
@@ -460,7 +460,7 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 			store8(pkp, mat[i][j])
 			pkp = pkp[8:]
 		}
-		{{ else if .Is6688128 }}
+		{{ else if or .Is348864 .Is6688128 }}
 		var j int
 		for j = nblocksI; j < nblocksH-1; j++ {
 			store8(pkp, mat[i][j])
