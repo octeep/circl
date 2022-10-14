@@ -48,7 +48,7 @@ func butterflies(out [][gfBits]uint64, in []uint64) {
 			}
 		}
 
-		constsPtr += (1 << i)
+		constsPtr += 1 << i
 	}
 
 	// adding the part contributed by x^64
