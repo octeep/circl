@@ -56,7 +56,7 @@ func (m Instance) Is8192128() bool {
 }
 
 func IsSystematic(m Instance) bool {
-	return !m.IsSemiSystematic() || m.Is460896() || m.Is6688128() || m.Is6960119()
+	return !m.IsSemiSystematic() || m.Is460896() || m.Is6688128() || m.Is6960119() || m.Is8192128()
 }
 
 var (

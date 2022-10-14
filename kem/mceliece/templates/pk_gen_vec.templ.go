@@ -168,7 +168,7 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 	}
 	{{else}}
 	for i := 0; i < 32; i++ {
-		{{if .Is6688128}}
+		{{if or .Is8192128 .Is6688128}}
 		buf[i] = (mat[row+i][blockIdx+0] >> 32) | (mat[row+i][blockIdx+1] << 32)
 		{{else}}
 		buf[i] = mat[row+i][blockIdx]
@@ -219,7 +219,7 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 	for i := 0; i < pkNRows; i++ {
 		{{if .Is6960119}}
 		t := (mat[i][blockIdx+0] >> tail) | (mat[i][blockIdx+1] << (64-tail))
-		{{else if .Is6688128}}
+		{{else if or .Is8192128 .Is6688128}}
 		t := (mat[i][blockIdx+0] >> 32) | (mat[i][blockIdx+1] << 32)
 		{{else}}
 		t := mat[i][blockIdx]
@@ -234,7 +234,7 @@ func movColumns(mat *[pkNRows][(sysN + 63) / 64]uint64, pi []int16, pivots *uint
 			t ^= d << j
 		}
 
-		{{if .Is6688128}}
+		{{if or .Is8192128 .Is6688128}}
 		mat[i][blockIdx+0] = (mat[i][blockIdx+0] << 32 >> 32) | (t << 32)
 		mat[i][blockIdx+1] = (mat[i][blockIdx+1] >> 32 << 32) | (t >> 32)
 		{{else if .Is6960119}}
@@ -480,6 +480,11 @@ func pkGen(pk *[pkNRows * pkRowBytes]byte, irr []byte, perm *[1 << gfBits]uint32
 		storeI(pkp, mat[row][k], pkRowBytes%8)
 		pkp[(pkRowBytes%8)-1] &= (1 << (pkNCols % 8)) - 1 // removing redundant bits
 		pkp = pkp[pkRowBytes%8:]
+		{{ else if .Is8192128 }}
+		for j := nblocksI; j < nblocksH; j++ {
+			store8(pkp, mat[i][j])
+			pkp = pkp[8:]
+		}
 		{{ end }}
 	}
 	{{else}}
