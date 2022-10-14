@@ -1,4 +1,4 @@
-// Code generated from vec_other.templ.go. DO NOT EDIT.
+// Code generated from vec.templ.go. DO NOT EDIT.
 
 package mceliece460896
 
@@ -16,10 +16,12 @@ func vecMul(h, f, g []uint64) {
 	}
 
 	for i := 2*gfBits - 2; i >= gfBits; i-- {
+
 		buf[i-gfBits+4] ^= buf[i]
 		buf[i-gfBits+3] ^= buf[i]
 		buf[i-gfBits+1] ^= buf[i]
 		buf[i-gfBits+0] ^= buf[i]
+
 	}
 
 	for i := 0; i < gfBits; i++ {

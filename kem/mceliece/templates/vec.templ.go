@@ -1,6 +1,10 @@
-// Code generated from vec_other.templ.go. DO NOT EDIT.
+// +build ignore
+// The previous line (and this one up to the warning below) is removed by the
+// template generator.
 
-package mceliece6688128f
+// Code generated from vec.templ.go. DO NOT EDIT.
+
+package {{.Pkg}}
 
 func vecMul(h, f, g []uint64) {
 	buf := [2*gfBits - 1]uint64{}
@@ -16,10 +20,15 @@ func vecMul(h, f, g []uint64) {
 	}
 
 	for i := 2*gfBits - 2; i >= gfBits; i-- {
+		{{ if .Is348864 }}
+		buf[i-gfBits+3] ^= buf[i]
+		buf[i-gfBits+0] ^= buf[i]
+		{{ else }}
 		buf[i-gfBits+4] ^= buf[i]
 		buf[i-gfBits+3] ^= buf[i]
 		buf[i-gfBits+1] ^= buf[i]
 		buf[i-gfBits+0] ^= buf[i]
+		{{ end }}
 	}
 
 	for i := 0; i < gfBits; i++ {
@@ -31,6 +40,20 @@ func vecMul(h, f, g []uint64) {
 func vecSq(out, in []uint64) {
 	result := [gfBits]uint64{}
 
+	{{ if .Is348864 }}
+	result[0] = in[0] ^ in[6]
+	result[1] = in[11]
+	result[2] = in[1] ^ in[7]
+	result[3] = in[6]
+	result[4] = in[2] ^ in[11] ^ in[8]
+	result[5] = in[7]
+	result[6] = in[3] ^ in[9]
+	result[7] = in[8]
+	result[8] = in[4] ^ in[10]
+	result[9] = in[9]
+	result[10] = in[5] ^ in[11]
+	result[11] = in[10]
+	{{ else }}
 	t := in[11] ^ in[12]
 
 	result[0] = in[0] ^ in[11]
@@ -52,6 +75,7 @@ func vecSq(out, in []uint64) {
 	result[10] = result[10] ^ in[11]
 	result[11] = in[10] ^ in[12]
 	result[12] = in[6] ^ t
+	{{ end }}
 
 	for i := 0; i < gfBits; i++ {
 		out[i] = result[i]
@@ -78,6 +102,16 @@ func vecInv(out, in []uint64) {
 	vecSq(out, out)
 	vecMul(out, out, tmp1111[:]) // ^11111111
 
+	{{ if .Is348864 }}
+	vecSq(out, out);
+	vecSq(out, out);
+	vecMul(out, out, tmp11[:]); // 1111111111
+
+	vecSq(out, out);
+	vecMul(out, out, in); // 11111111111
+
+	vecSq(out, out); // 111111111110
+	{{ else }}
 	vecSq(out, out)
 	vecSq(out, out)
 	vecSq(out, out)
@@ -85,6 +119,7 @@ func vecInv(out, in []uint64) {
 	vecMul(out, out, tmp1111[:]) // ^111111111111
 
 	vecSq(out, out) // ^1111111111110
+	{{ end }}
 }
 
 func vecSetBits(b uint64) uint64 {

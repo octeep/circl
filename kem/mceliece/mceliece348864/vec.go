@@ -1,4 +1,4 @@
-// Code generated from vec_other.templ.go. DO NOT EDIT.
+// Code generated from vec.templ.go. DO NOT EDIT.
 
 package mceliece348864
 
@@ -16,8 +16,10 @@ func vecMul(h, f, g []uint64) {
 	}
 
 	for i := 2*gfBits - 2; i >= gfBits; i-- {
+
 		buf[i-gfBits+3] ^= buf[i]
 		buf[i-gfBits+0] ^= buf[i]
+
 	}
 
 	for i := 0; i < gfBits; i++ {
@@ -55,17 +57,17 @@ func vecInv(out, in []uint64) {
 	vecCopy(out, in)
 
 	vecSq(out, out)
-	vecMul(tmp11[:], out, in) // 11
+	vecMul(tmp11[:], out, in) // ^11
 
 	vecSq(out, tmp11[:])
 	vecSq(out, out)
-	vecMul(tmp1111[:], out, tmp11[:]) // 1111
+	vecMul(tmp1111[:], out, tmp11[:]) // ^1111
 
 	vecSq(out, tmp1111[:])
 	vecSq(out, out)
 	vecSq(out, out)
 	vecSq(out, out)
-	vecMul(out, out, tmp1111[:]) // 11111111
+	vecMul(out, out, tmp1111[:]) // ^11111111
 
 	vecSq(out, out)
 	vecSq(out, out)
